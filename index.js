@@ -6,7 +6,6 @@ OrgChart.events.on('redraw', function(sender) {
     }
 });
 
-
 function mousedownHandler(e) {
     var sender = this.sender;
 
@@ -18,10 +17,10 @@ function mousedownHandler(e) {
     var w = parseInt(svg.getAttribute('width'));
     var h = parseInt(svg.getAttribute('height'));
 
-
     var viewBox = svg.getAttribute("viewBox");
     viewBox = "[" + viewBox + "]";
     viewBox = viewBox.replace(/\ /g, ",");
+    console.log(viewBox);
     viewBox = JSON.parse(viewBox);
 
     var scaleX = w / viewBox[2];
@@ -29,17 +28,15 @@ function mousedownHandler(e) {
 
     var scale = scaleX > scaleY ? scaleY : scaleX;
 
-
-
     var fromnode = sender.getNode(this.getAttribute('node-id'));
     var tonode = null;
 
 
     var moveHandler = function(e) {
         if (tonode && (tonode.id != fromnode.id)) {
-            //var shortest = findShortestDistance(fromnode, tonode);
-            //line(svg, shortest.start, shortest.end);
-            line(svg, tonode.middle, fromnode.middle);
+            var shortest = findShortestDistance(fromnode, tonode);
+            line(svg, shortest.start, shortest.end);
+            //line(svg, tonode.middle, fromnode.middle);
         } else {
             var end = {
                 x: (e.offsetX / scale + viewBox[0]),
@@ -291,32 +288,50 @@ var responseNodes = [
     { id: 18, name: "Super" }
 ];
 
-var div = document.createElement('div');
+var searchBar = document.getElementById('search-bar');
 
-for (let i = 0; i < questionArray.length; i++) {
-    let button = document.createElement('button');
-    button.style.width = '100%';
-    button.style.height = '30px';
-    button.innerHTML = questionArray[i].question;
-    button.addEventListener('click', function() {
-        questionHandler(questionArray[i]);
-    }, false);
-    div.appendChild(button);
-}
+searchBar.addEventListener('keyup', (e) => {
+    //searchBar.value = '';
+    let questionBox = document.getElementById('question-box');
+    while (questionBox.firstChild) {
+        questionBox.removeChild(questionBox.lastChild);
+    }
+    let filteredQuestion = questionArray.filter(res => {
+        return res.question.toLowerCase().includes(e.target.value.toLowerCase());
+    });
+    //console.log(filteredQuestion);
+    var div = document.createElement('div');
 
-document.getElementById('question-box').appendChild(div);
+    for (let i = 0; i < filteredQuestion.length; i++) {
+        let input = document.createElement('input');
+        input.style.width = '100%';
+        input.style.height = '30px';
+        input.style.background = 'white';
+        input.style.border = '1px solid lightgrey';
+        input.style.textAlign = 'left';
+        input.style.cursor = 'pointer';
+        input.value = filteredQuestion[i].question;
+        input.addEventListener('click', function() {
+            questionHandler(filteredQuestion[i]);
+        }, false);
+        div.appendChild(input);
+    }
 
-var span = document.getElementsByClassName("close")[0];
-span.onclick = function() {
-    modal.style.display = "none";
-}
+    questionBox.appendChild(div);
+
+    var span = document.getElementsByClassName("close")[0];
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+});
 
 const addConditionHandler = (id) => {
     console.log(`add condition handler ${id}`);
 }
 
 const endSessionHandler = (id) => {
-    console.log('end session handler');
+    nodeArray.push({ id: 0, pid: id, name: 'End Session' });
+    chart.draw();
 }
 
 var modal = document.getElementById("myModal");
@@ -332,9 +347,6 @@ function questionHandler(str) {
                 nodeArray.push(responseNodes[j]);
             }
         }
-        // let childNode = responseNodes.filter(res => res.id === str.cid[i]);
-        // childNode[0].pid = parentId;
-        // nodeArray.push(childNode[0]);
     }
 
     modal.style.display = 'none';
@@ -343,19 +355,31 @@ function questionHandler(str) {
 }
 
 const askQuestionHandler = (id) => {
+    let questionBox = document.getElementById('question-box');
+    while (questionBox.firstChild) {
+        questionBox.removeChild(questionBox.lastChild);
+    }
     parentId = id;
+    searchBar.value = '';
     modal.style.display = "block";
 }
 
-OrgChart.templates.ula.field_0 =
-    '<text width="230" style="font-size: 15px;" fill="#000000" x="125" y="60" text-anchor="middle" class="field_0">{val}</text>';
-OrgChart.templates.ula.field_1 =
-    '<text width="230" style="font-size: 15px;" fill="#000000" x="125" y="80" text-anchor="middle" class="field_0">{val}</text>';
+const removeHandler = (id) => {
+    console.log('remove handler');
+}
 
-OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;" transform="matrix(1,0,0,1,220,90)" control-node-menu-id="{id}"><rect  fill="#000000" fill-opacity="0" width="22" height="22"></rect><circle cx="0" cy="0" r="2" fill="#004165"></circle><circle cx="7" cy="0" r="2" fill="#004165"></circle><circle cx="14" cy="0" r="2" fill="#004165"></circle></g>';
+
+//customization in design of node field and menu button 
+OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 15px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
+
+OrgChart.templates.ula.field_1 = '<text width="230" style="font-size: 15px;" fill="#000000" x="125" y="60" text-anchor="middle" class="field_0">{val}</text>';
+
+OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;"  control-node-menu-id="{id}"><rect x="205" y="75"  fill="#0099ff"  style="width: 40px; height: 20px;" ></rect><text width="230" style="font-size: 12px; cursor: pointer;" fill="#000000" x="225" y="90" text-anchor="middle" class="field_0">Query</text></g>';
 
 OrgChart.templates.ula.html = '<foreignobject class="node" x="20" y="10" width="200" height="100">{val}</foreignobject>';
 
+
+//OrgChart implementation
 var chart = new OrgChart(document.getElementById("tree"), {
     mouseScrool: OrgChart.action.scroll,
     template: "ula",
@@ -366,12 +390,19 @@ var chart = new OrgChart(document.getElementById("tree"), {
             text: "Ask Question",
             onClick: askQuestionHandler
         },
-        remove: { text: "Remove Question" },
+
         condition: {
             icon: "",
             text: "Add Condition",
             onClick: addConditionHandler
         },
+
+        remove: {
+            icon: "",
+            text: "Remove Question",
+            onClick: removeHandler
+        },
+
         endsession: {
             icon: "",
             text: "End Session",
@@ -387,8 +418,7 @@ var chart = new OrgChart(document.getElementById("tree"), {
 
 });
 
-
-
+//nothing will happen on chart node click
 chart.on('click', (a, b) => {
     return false;
 });
