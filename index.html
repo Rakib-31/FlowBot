@@ -1,47 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <title>FlowBot</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <head>
+    <title>FlowBot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
-<!-- Optional theme -->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
 
-<!-- Latest compiled and minified JavaScript -->
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="./index.css">    
-  <script src="./orgchart.js"></script>
-  
-</head>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="./index.css">    
+    <script src="./orgchart.js"></script>  
+  </head>
 
-<body>
-<div>
-
-
-<div id="tree"></div>
-<div id="myModal" class="modal">
-
-  <!-- Modal content -->
-  <div id="modal-content" class="modal-content">
-    <span class="close">&times;</span>
-    <div class="auto-complete" style="text-align: center;">
-      <input name="myCountry" id="search-bar" value="" placeholder="search..."/>
-    </div>
+  <body>
     <div>
-      <h4>
-        Question
-      </h4>
-      <div id="question-box">
-        
-      </div>
-    </div>
-  </div>
+      <div id="tree"></div>
+      <div id="myModal" class="modal">
 
-</div>
-</div>
-<script src="./index.js"></script>
-</body>
+        <!-- Modal content -->
+        <div id="modal-content" class="modal-content">
+          <span class="close">&times;</span>
+          <div class="auto-complete" style="text-align: center;">
+            <input autocomplete="off" name="myCountry" id="search-bar" value="" placeholder="search..."/>
+          </div>
+          <div>
+            <h4>
+              Question
+            </h4>
+            <div id="question-box">  
+            </div>
+          </div>
+        </div>
+      </div>
+    </div> 
+    <script src="./index.js"></script>
+  </body>
 </html>
