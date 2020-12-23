@@ -1,36 +1,30 @@
-var questionArray = null;
-
-fetch('./data.json').then(function(response) {
-    response.text().then(function(text) {
-        questionArray = JSON.parse(text);
-    });
-});
-
 //each response nodes of a question
 //are getting this parentId as their
 // parent node id
-var parentId;
+var parentId = null;
+var flowBot = {tenant: 'ema',nodes: []};
+var nodeArray = [{ id: 1, name: "Press the button to ask any query" }];
+var questionArray = null;
 
-var nodeArray = [
-    { id: 1, name: "Press the button to ask any query" }
-];
+//fetching data from the server and set it to the questionArray
+axios.get( './data.json' ).then( data => questionArray = data.data.data );
 
-var searchBar = document.getElementById('search-bar');
-var modal = document.getElementById("myModal");
 
-//click cross button to close the modal
-var span = document.getElementsByClassName("close")[0];
-span.onclick = function() {
+var searchBar = document.getElementById('search-bar'); // select search bar from the dom
+var modal = document.getElementById("myModal");        // select modal from dom
+
+
+var span = document.getElementsByClassName("close")[0];  //select cross button from modal
+span.onclick = function() {                             //click cross button to close the modal
     modal.style.display = "none";
 }
 
-// auto complete input field section from line 27 to 101
-function autocomplete(inp, arr) {
 
+function autocomplete(inp, dataArray) {                // auto complete input field section from line 27 to 101
     var currentFocus;
     inp.addEventListener("input", function(e) {
         var val = this.value;
-        closeAllLists();     //close any already open lists of autocompleted values
+        closeAllLists();                              //close any already open lists of autocompleted values
         if (!val) { return false; }
         currentFocus = -1;
         itemContainerDiv = document.createElement("div");
@@ -38,30 +32,29 @@ function autocomplete(inp, arr) {
         itemContainerDiv.setAttribute("class", "autocomplete-items");
         this.parentNode.appendChild(itemContainerDiv);
 
-        for (let i = 0; i < arr.length; i++) {
-            if (arr[i].text.toUpperCase().includes(val.toUpperCase())) {
+        for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i].text.toUpperCase().includes(val.toUpperCase())) {
                 itemDiv = document.createElement("div");
                 itemDiv.style.textAlign = 'left';
-                itemDiv.innerHTML = arr[i].text;
+                itemDiv.innerHTML = dataArray[i].text;
 
                 itemDiv.addEventListener('click', function() {
-                    
-                    console.log(arr[i]);
-                    questionHandler(arr[i]);
+                    questionHandler(dataArray[i]);
                 }, false);
                 itemContainerDiv.appendChild(itemDiv);
             }
         }
     });
-    /*execute a function presses a key on the keyboard:*/
-    inp.addEventListener("keydown", function(e) {
+
+    
+    inp.addEventListener("keydown", function(e) {                          //execute a function presses a key on the keyboard
         var x = document.getElementById(this.id + "autocomplete-list");
         if (x) x = x.getElementsByTagName("div");
         if (e.keyCode == 40) {      
-            currentFocus++;              //If the arrow DOWN key is pressed increase the currentFocus variable:
-            addActive(x);                //and and make the current item more visible
+            currentFocus++;                                                //If the arrow DOWN key is pressed increase the currentFocus variable:
+            addActive(x);                                                  //and and make the current item more visible
         } else if (e.keyCode == 38) {   
-            currentFocus--;              //If the arrow UP key is pressed decrease the currentFocus variable
+            currentFocus--;                                                //If the arrow UP key is pressed decrease the currentFocus variable
             addActive(x);
         } else if (e.keyCode == 13) {
             e.preventDefault();
@@ -71,15 +64,16 @@ function autocomplete(inp, arr) {
         }
     });
 
+
     function addActive(x) {
         if (!x) return false;
-        removeActive(x);               //start by removing the "active" class on all items
+        removeActive(x);                                                  //start by removing the "active" class on all items
         if (currentFocus >= x.length) currentFocus = 0;
         if (currentFocus < 0) currentFocus = (x.length - 1);
-        x[currentFocus].classList.add("autocomplete-active");   //active the selected item div
+        x[currentFocus].classList.add("autocomplete-active");             //active the selected item div
     }
 
-    //function for removing item from the active list
+    //function for removing item from the active list on autocomplete
     function removeActive(x) {
         for (var i = 0; i < x.length; i++) {
             x[i].classList.remove("autocomplete-active");
@@ -101,28 +95,64 @@ function autocomplete(inp, arr) {
     });
 }
 
+
 const addConditionHandler = (id) => {
     console.log(`add condition handler ${id}`);
 }
 
+
 const endSessionHandler = (id) => {
+    if(prevNode !== null){
+        prevNode.chatEnded = true;
+    }
+    console.log(JSON.stringify(flowBot));
     nodeArray.push({ id: 0, pid: id, name: 'End Session' });
     chart.draw();
 }
 
-// response handling after select a question
-function questionHandler(question) {
-    let parentNode = nodeArray.filter((res) => res.id === parentId);   // searching parent node for the selected question's response node
-    parentNode[0].questionName = question.text;
-    question.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); // sort response for view by order in the question tree
 
+// response handling after select a question
+var prevNode = null;
+
+function questionHandler(questionObject) {
+    let currentNode = nodeArray.filter((res) => res.id === parentId);   // set current node as parent node for the selected question's response node
+    if(prevNode !== null){
+        let temp = prevNode.responses.filter(res => res.name === currentNode[0].name);
+        console.log(temp);
+        temp[0].nextQuestionId = questionObject.questionId;
+    }
+    
+    currentNode[0].questionName = questionObject.text;
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); // sort response for view by order in the question tree
+    
+    var responseArray = [];
     // pushing all response node into question tree
-    for(let i = 0; i < question.responses.length; i++){
-        console.log(question);
-        nodeArray.push({id: nodeArray.length + 1, pid: parentId, name: question.responses[i].name});
+    for(let i = 0; i < questionObject.responses.length; i++){
+        nodeArray.push({
+            id: nodeArray.length + 1,
+            pid: parentId,
+            name: questionObject.responses[i].name
+        });
+        responseArray.push({
+            responseId: responseArray.length,
+            name: questionObject.responses[i].name,
+            nextQuestionId: null
+        });
     }
 
-    modal.style.display = 'none';
+    //set the current node as previous node
+    prevNode = {
+        questionId: questionObject.questionId,
+        NodeType: questionObject.typeName,
+        question: questionObject.text,
+        nextQuestionId: null,
+        chatEnded: false,
+        responses: responseArray
+    }
+    //push the current node into flowBot
+    flowBot.nodes.push(prevNode);  
+    console.log(JSON.stringify(flowBot));
+    modal.style.display = 'none';        //close modal
     console.log(nodeArray);
     chart.draw();
 }
@@ -132,12 +162,15 @@ function questionHandler(question) {
 //input box should be clean
 //current node id will be set to the parentId
 const askQuestionHandler = (id) => {
-    autocomplete(searchBar, questionArray.data.questions);
+    autocomplete(searchBar, questionArray.questions);
     parentId = id;
     searchBar.value = '';
     modal.style.display = "block";
 }
 
+
+//making a queue of subtree for delete
+//it is like push and pop a queue concept
 const removeQuestionHandler = (id) => {
     let removeArray = [];
     removeArray.push(id);
@@ -158,17 +191,17 @@ const removeQuestionHandler = (id) => {
     chart.draw();
 }
 
+
 OrgChart.events.on('redraw', function(sender) {
     var nodeElements = sender.getSvg().querySelectorAll('[node-id]');
-    //console.log(nodeElements);
+
     for (var i = 0; i < nodeElements.length; i++) {
-        //nodeElements[0].ownerSVGElement.clientHeight = 500;
-        //console.log(nodeElements[0].ownerSVGElement);
         let t = nodeElements[0].ownerSVGElement;
         nodeElements[i].sender = sender;
         nodeElements[i].addEventListener('mousedown', mousedownHandler);
     }
 });
+
 
 function mousedownHandler(e) {
     var sender = this.sender;
@@ -180,11 +213,10 @@ function mousedownHandler(e) {
 
     var w = parseInt(svg.getAttribute('width'));
     var h = parseInt(svg.getAttribute('height'));
-
+    
     var viewBox = svg.getAttribute("viewBox");
     viewBox = "[" + viewBox + "]";
     viewBox = viewBox.replace(/\ /g, ",");
-    console.log(viewBox);
     viewBox = JSON.parse(viewBox);
 
     var scaleX = w / viewBox[2];
@@ -206,6 +238,7 @@ function mousedownHandler(e) {
                 x: (e.offsetX / scale + viewBox[0]),
                 y: (e.offsetY / scale + viewBox[1])
             }
+            
             var shortest = findShortestDistanceBetweenPointerAndNode(fromnode, end)
             line(svg, shortest.start, shortest.end);
         }
@@ -237,9 +270,6 @@ function mousedownHandler(e) {
         }
     };
 
-
-
-
     svg.addEventListener('mousemove', moveHandler);
     svg.addEventListener('mouseup', leaveHandler);
     svg.addEventListener('mouseleave', leaveHandler);
@@ -250,6 +280,7 @@ function mousedownHandler(e) {
         nodeElements[i].addEventListener('mouseleave', mouseleaveHandler);
     }
 }
+
 
 function line(svg, start, end) {
 
@@ -273,6 +304,7 @@ function line(svg, start, end) {
     line.setAttributeNS(null, 'y2', end.y);
 }
 
+
 function removeLine() {
     var line = document.querySelector('#bgline');
     if (line) {
@@ -284,6 +316,7 @@ function removeLine() {
 OrgChart.events.on('renderdefs', function(sender, args) {
     args.defs += '<marker id="arrowSelected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path fill="blue" d="M 0 0 L 10 5 L 0 10 z" /></marker><marker id="dotSelected" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"> <circle cx="5" cy="5" r="5" fill="blue" /></marker>';
 });
+
 
 function findShortestDistance(fromNode, toNode) {
     var fromNodepoints = [];
@@ -389,6 +422,9 @@ function findShortestDistanceBetweenPointerAndNode(fromNode, p) {
     };
 }
 
+
+var nodes = nodeArray;
+
 //customization in design of node field and menu button 
 OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 12px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
 
@@ -436,9 +472,9 @@ var chart = new OrgChart(document.getElementById("tree"), {
         field_1: "questionName"
     },
 
-    nodes: nodeArray
+    nodes: nodes
 
 });
 
 //nothing will happen on chart node click
-chart.on('click', (a, b) => { return false; });
+chart.on('click', (a, b) => {console.log(a); return false; });
