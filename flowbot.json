@@ -1,0 +1,140 @@
+{
+    "VirtualAgent": "telemeddev",
+    "Logo": "TEST-2116",
+    "ExerciseName": "chintotest",
+    "Node": [{
+            "Id": 1,
+            "NodeType": "Question",
+            "Question": {
+                "questionId": 10007,
+                "text": "How did you sleep last night?",
+                "header1": "",
+                "header2": "",
+                "intent": "",
+                "title": "",
+                "buttonText": "",
+                "dialogue": [
+                    "How did you sleep last night?"
+                ],
+                "hint": [
+                    ""
+                ],
+                "exercise": null,
+                "typeId": 0,
+                "typeName": "General",
+                "botName": "PAIN_BOT",
+                "lastQuestionInGroup": false,
+                "responseType": "BUTTON",
+                "tenant": "emma",
+                "saveAnswer": true,
+                "editable": true,
+                "chatEnded": false,
+                "audioUrl": [
+                    "emma_2_en_10007_1605537893.mp3"
+                ],
+                "responses": [{
+                        "id": 10075,
+                        "name": "Excellent",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 5
+                    },
+                    {
+                        "id": 10076,
+                        "name": "Good",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 4
+                    },
+                    {
+                        "id": 10077,
+                        "name": "Adequate",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 3
+                    },
+                    {
+                        "id": 10078,
+                        "name": "Disturbed",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 2
+                    },
+                    {
+                        "id": 10079,
+                        "name": "Intermittent",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 1
+                    },
+                    {
+                        "id": 10080,
+                        "name": "Did Not Sleep",
+                        "hint": "",
+                        "title": "",
+                        "description": "",
+                        "color": "",
+                        "icon": "",
+                        "modalUrl": "",
+                        "checked": false,
+                        "viewOrder": 0
+                    }
+                ]
+            }
+        },
+        {
+        "Id": 2,
+        "NodeType": "Condition",
+        "Condition": {
+            "condition": "AND",
+            "rules": [{ "id": "400", "field": "ansid_400", "type": "integer", "input": "checkbox", "operator": "equal", "value": [2180] },
+                {"Result": "node_id"}
+            ]
+        }
+    },
+    {
+        "Id": 3,
+        "NodeType": "Gotova",
+        "va": [{
+            "id": "10"
+        }]
+    }, 
+    {
+        "Id": 4,
+        "NodeType": "END"
+    }
+],
+"linkDataArray": [
+    { "from": 1, "to": 2 },
+    { "from": 2, "to": 3 },
+    { "from": 2, "to": 5 },
+    { "from": 3, "to": 4 },
+    { "from": 4, "to": 6 }
+]
+
+}

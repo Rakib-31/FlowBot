@@ -1,0 +1,67 @@
+{
+    "tenant": "emma",
+    "Nodes": [
+        {
+            "questionId": 2000,
+            "NodeType":"Question",
+            "nextQuestinId": null,
+            "chatEnded": false,
+            "responses": [
+                {
+                    "responseId": 1,
+                    "nextQuestionId": 2001
+                },
+                {
+                    "responseId": 2,
+                    "nextQuestionId": 2003
+                }
+            ]
+        },
+        {
+            "questionId": 2001,
+            "NodeType":"Question",
+            "nextQuestinId": 2004,
+            "chatEnded": false,
+            "responses": [
+                {
+                    "responseId": 3,
+                    "nextQuestionId": null
+                },
+                {
+                    "responseId": 4,
+                    "nextQuestionId": null
+                }
+            ]
+        },
+        {
+            "questionId": 2003,
+            "NodeType":"Question",
+            "nextQuestinId": 2004,
+            "chatEnded": false,
+            "responses": [
+                {
+                    "responseId": 5,
+                    "nextQuestionId": null
+                },
+                {
+                    "responseId": 6,
+                    "nextQuestionId": null
+                }
+            ]
+        },
+        {
+            "questionId": 2004,
+            "NodeType":"Question",
+            "nextQuestinId": null,
+            "chatEnded": true,
+            "responses": [
+                {
+                    "responseId": 5
+                },
+                {
+                    "responseId": 6
+                }
+            ]
+        }
+    ]
+}

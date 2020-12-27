@@ -3,15 +3,24 @@
 // parent node id
 var parentId = null;
 var flowBot = {tenant: 'ema',nodes: []};
-var nodeArray = [{ id: 1, name: "Press the button to ask any query" }];
+var nodeArray = [{ id: 1, name: "Press the button to ask any query", questionNode: null }];
 var questionArray = null;
 
 //fetching data from the server and set it to the questionArray
-axios.get( './data.json' ).then( data => questionArray = data.data.data );
+axios.get( './data.json' ).then( data =>{ 
+    questionArray = data.data.data;
+    let str = [];
+    for (let i = 0; i < questionArray.questions.length; i++){
+        let m = str.indexOf(questionArray.questions[i].responseType);
+        if(m === -1) str.push(questionArray.questions[i].responseType);
+    }
+    console.log(str);
+});
 
 
 var searchBar = document.getElementById('search-bar'); // select search bar from the dom
 var modal = document.getElementById("myModal");        // select modal from dom
+let questionOption = document.getElementById('question-option');
 
 
 var span = document.getElementsByClassName("close")[0];  //select cross button from modal
@@ -102,58 +111,86 @@ const addConditionHandler = (id) => {
 
 
 const endSessionHandler = (id) => {
-    if(prevNode !== null){
-        prevNode.chatEnded = true;
+
+    let endNode = nodeArray.filter(result => result.id === id);
+    let parentOfEndNode = nodeArray.filter(result => result.id === endNode[0].pid);
+    parentOfEndNode[0].questionNode.chatEnded = true;
+
+    if(parentOfEndNode[0].questionNode.responses !== null){
+        let responseOfParent = parentOfEndNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
+        responseOfParent[0].chatEnded = true;
     }
     console.log(JSON.stringify(flowBot));
-    nodeArray.push({ id: 0, pid: id, name: 'End Session' });
+
+    nodeArray.push({id: 0, pid: id, name: 'End Session'});
+    
     chart.draw();
 }
 
-
 // response handling after select a question
-var prevNode = null;
+var questionNodeObject = null;
+function questionHandler(questionObject) { 
 
-function questionHandler(questionObject) {
-    let currentNode = nodeArray.filter((res) => res.id === parentId);   // set current node as parent node for the selected question's response node
-    if(prevNode !== null){
-        let temp = prevNode.responses.filter(res => res.name === currentNode[0].name);
-        console.log(temp);
-        temp[0].nextQuestionId = questionObject.questionId;
-    }
-    
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
+    let currentNode = nodeArray.filter((res) => res.id === parentId);
     currentNode[0].questionName = questionObject.text;
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); // sort response for view by order in the question tree
-    
+  
+    if(nodeArray.length > 1){
+        let parentNode = nodeArray.filter(res => res.id === currentNode[0].pid);
+        if(parentNode[0].questionNode.responses === null){
+            parentNode[0].questionNode.nextNodeId = questionObject.questionId;
+        } else {
+            let child = parentNode[0].questionNode.responses.filter(result => result.name === currentNode[0].name);
+            child[0].nextNodeId = questionObject.questionId;
+        }
+    }
+
+    console.log(questionObject.responses);
+    if(questionObject.responses.length === 0){
+        console.log(questionObject.responses);
+        nodeArray.push({
+            id: nodeArray.length + 1,
+            pid: parentId,
+            name: questionObject.text,
+            questionNode: null
+        });
+    }
+
     var responseArray = [];
-    // pushing all response node into question tree
+    // pushing all response node into question tree if any response node is there
     for(let i = 0; i < questionObject.responses.length; i++){
         nodeArray.push({
             id: nodeArray.length + 1,
             pid: parentId,
-            name: questionObject.responses[i].name
+            name: questionObject.responses[i].name,
+            questionNode: null
         });
         responseArray.push({
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
-            nextQuestionId: null
+            nextNodeId: null,
+            chatEnded: false
         });
     }
 
-    //set the current node as previous node
-    prevNode = {
+    questionNodeObject = {
         questionId: questionObject.questionId,
         NodeType: questionObject.typeName,
         question: questionObject.text,
-        nextQuestionId: null,
+        nextNodeId: null,
         chatEnded: false,
-        responses: responseArray
+        responses: null
     }
-    //push the current node into flowBot
-    flowBot.nodes.push(prevNode);  
+
+    if(responseArray.length){
+        questionNodeObject.responses = responseArray;
+    }
+
+    currentNode[0].questionNode = questionNodeObject;
+    flowBot.nodes.push(currentNode[0].questionNode);
+  
     console.log(JSON.stringify(flowBot));
     modal.style.display = 'none';        //close modal
-    console.log(nodeArray);
     chart.draw();
 }
 
@@ -166,6 +203,32 @@ const askQuestionHandler = (id) => {
     parentId = id;
     searchBar.value = '';
     modal.style.display = "block";
+}
+
+const questionTypeHandler = (id, type) => {
+    console.log(id, type);
+}
+
+
+const vA_Handler = (id) => {
+     
+    if(offsetX + 200 > screen.width){
+        offsetX -= 200;
+    }
+    if(offsetY + 200 > screen.height){
+        offsetY -= 100;
+    }
+    questionOption.style.left = offsetX + 'px';
+    questionOption.style.top = offsetY + 'px';
+    
+    let div = `
+        <div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Question')" value="Question"/></div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Condition')" value="Condition"/></div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'End')" value="End"/></div>
+        </div>
+    `
+    questionOption.innerHTML = div;
 }
 
 
@@ -191,19 +254,32 @@ const removeQuestionHandler = (id) => {
     chart.draw();
 }
 
+const deleteChildFromQuestionOptionDiv = () => {
+    questionOption.innerHTML = '';
+}
 
+var nodeElements = null;
 OrgChart.events.on('redraw', function(sender) {
-    var nodeElements = sender.getSvg().querySelectorAll('[node-id]');
+    nodeElements = sender.getSvg().querySelectorAll('[node-id]');
+
+    deleteChildFromQuestionOptionDiv();
 
     for (var i = 0; i < nodeElements.length; i++) {
         let t = nodeElements[0].ownerSVGElement;
         nodeElements[i].sender = sender;
+        
         nodeElements[i].addEventListener('mousedown', mousedownHandler);
     }
 });
 
+// For nodeType option x,y coordinate
+//position setup on the svg
+var offsetX;
+var offsetY;
 
 function mousedownHandler(e) {
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
     var sender = this.sender;
 
     var svg = e.target;
@@ -427,16 +503,10 @@ var nodes = nodeArray;
 
 //customization in design of node field and menu button 
 OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 12px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
-
 OrgChart.templates.ula.field_1 = '<text width="230" style="font-size: 10px;" fill="#000000" x="125" y="60" text-anchor="middle" class="field_0">{val}</text>';
-
 OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
                                         +'<rect x="205" y="75"  fill="#0099ff" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
                                         +'<text width="230" style="font-size: 10px; cursor: pointer;" fill="#ffffff" x="225" y="88" text-anchor="middle" class="field_0">Query</text></g>';
-
-OrgChart.templates.ula.html = '<foreignobject class="node" x="20" y="10" width="200" height="100">{val}</foreignobject>';
-
-
 //OrgChart implementation
 var chart = new OrgChart(document.getElementById("tree"), {
     mouseScrool: OrgChart.action.scroll,
@@ -449,10 +519,16 @@ var chart = new OrgChart(document.getElementById("tree"), {
             onClick: askQuestionHandler
         },
 
-        condition: {
+        // condition: {
+        //     icon: "",
+        //     text: "Add Condition",
+        //     onClick: addConditionHandler
+        // },
+
+        goToAnotherVA: {
             icon: "",
-            text: "Add Condition",
-            onClick: addConditionHandler
+            text: "Go to another V/A",
+            onClick: vA_Handler
         },
 
         remove: {
@@ -473,8 +549,10 @@ var chart = new OrgChart(document.getElementById("tree"), {
     },
 
     nodes: nodes
-
 });
 
 //nothing will happen on chart node click
-chart.on('click', (a, b) => {console.log(a); return false; });
+chart.on('click', (a, b) => {
+    deleteChildFromQuestionOptionDiv();
+    return false;
+});

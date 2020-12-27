@@ -1,0 +1,61 @@
+{
+    "question": {
+        "Tenant": "telemeddev",
+        "QuestionId": 1,
+        "QuestionTitle": "First Name -test",
+        "GroupId": 1,
+        "GroupName": "Demographic",
+        "MainQuestionType": 1,
+        "MainQuestionTypeName": "Assessment",
+        "BodyRegion": [
+            "1",
+            "2"
+        ],
+        "ExerciseName": "",
+        "PracticeUrl": "",
+        "QuestionType": "TEXT",
+        "BioPainQuestion": false,
+        "BioMeasureQuestion": false,
+        "DialogApi": [
+            {
+                "DialogContent": "test",
+                "Hints": "Hints text",
+                "WebReference": "Web Reference text ",
+                "LanguageId": 1,
+                "LanguageName": "en"
+            },
+            {
+                "DialogContent": " ¿cuál es tu primer nombre?",
+                "Hints": "hints text - spanish ",
+                "WebReference": "web - spanish ",
+                "LanguageId": 2,
+                "LanguageName": "es"
+            }
+        ]
+    },
+    "response": {
+        "Tenant": "telemeddev",
+        "AnswerId": 3,
+        "QuestionId": 3,
+        "ColorCode": "#000000",
+        "Icon": "<i class=\"fa fa-address-book-o\" aria-hidden=\"true\"></i>",
+        "DialogAnswerApi": [
+            {
+                "AnswerTitle": "test",
+                "Tooltip": "Tooltip   ",
+                "Hints": "Hints",
+                "WebReference": "Web Reference",
+                "LanguageId": 1,
+                "LanguageName": "English"
+            },
+            {
+                "AnswerTitle": "prueba",
+                "Tooltip": "prueba- información sobre herramientas",
+                "Hints": "sugerencias de prueba",
+                "WebReference": "nprueba- ref web",
+                "LanguageId": 2,
+                "LanguageName": "Spanish"
+            }
+        ]
+    }
+}
