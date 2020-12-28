@@ -2,8 +2,8 @@
 //are getting this parentId as their
 // parent node id
 var parentId = null;
-var flowBot = {tenant: 'ema',nodes: []};
-var nodeArray = [{ id: 1, name: "Press the button to ask any query", questionNode: null }];
+var flowBot = {tenant: 'ema',nodes: [], slink: []};
+var nodeArray = [{ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
 var questionArray = null;
 
 //fetching data from the server and set it to the questionArray
@@ -113,59 +113,68 @@ const addConditionHandler = (id) => {
 const endSessionHandler = (id) => {
 
     let endNode = nodeArray.filter(result => result.id === id);
-    let parentOfEndNode = nodeArray.filter(result => result.id === endNode[0].pid);
-    parentOfEndNode[0].questionNode.chatEnded = true;
 
-    if(parentOfEndNode[0].questionNode.responses !== null){
-        let responseOfParent = parentOfEndNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
-        responseOfParent[0].chatEnded = true;
+    if(endNode[0].type === 'Condition'){
+        //endNode[0].nextNodeId = 0;
+        let anotherNode = nodeArray.filter(res => res.id === endNode[0].pid);
+        anotherNode[0].questionNode.chatEnded = true;
+        console.log(anotherNode);
+        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
+        responseNode[0].chatEnded = true;
+    } else if (endNode[0].type === 'Question') {
+        endNode[0].questionNode.chatEnded = true;
     }
+
     console.log(JSON.stringify(flowBot));
 
-    nodeArray.push({id: 0, pid: id, name: 'End Session'});
+    nodeArray.push({id: 0,tags: ['End'], pid: id, name: 'End Session'});
     
     chart.draw();
 }
 
 // response handling after select a question
 var questionNodeObject = null;
+
 function questionHandler(questionObject) { 
 
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
-    let currentNode = nodeArray.filter((res) => res.id === parentId);
-    currentNode[0].questionName = questionObject.text;
-  
-    if(nodeArray.length > 1){
-        let parentNode = nodeArray.filter(res => res.id === currentNode[0].pid);
-        if(parentNode[0].questionNode.responses === null){
-            parentNode[0].questionNode.nextNodeId = questionObject.questionId;
-        } else {
-            let child = parentNode[0].questionNode.responses.filter(result => result.name === currentNode[0].name);
-            child[0].nextNodeId = questionObject.questionId;
-        }
+    let node = nodeArray.filter(res => res.id === parentId);
+    if(node[0].type === 'Condition'){
+        let anotherNode = nodeArray.filter(res => res.id === node[0].pid);
+        console.log(anotherNode);
+        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === node[0].name);
+        responseNode[0].nextNodeId = questionObject.questionId;
+        node[0].nextNodeId = questionObject.questionId;
     }
 
-    console.log(questionObject.responses);
-    if(questionObject.responses.length === 0){
-        console.log(questionObject.responses);
-        nodeArray.push({
-            id: nodeArray.length + 1,
-            pid: parentId,
-            name: questionObject.text,
-            questionNode: null
-        });
+    if(node[0].type === 'Question'){
+        node[0].questionNode.nextNodeId = questionObject.questionId;
     }
+
+    let newNode = {
+        id: nodeArray.length + 1,
+        pid: parentId,
+        tags: ['Question'],
+        name: questionObject.text,
+        type: 'Question',
+        questionNode: null
+    }
+    nodeArray.push(newNode);
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
 
     var responseArray = [];
     // pushing all response node into question tree if any response node is there
     for(let i = 0; i < questionObject.responses.length; i++){
         nodeArray.push({
             id: nodeArray.length + 1,
-            pid: parentId,
+            pid: newNode.id,
+            parentQid: questionObject.questionId,
+            tags: ['Condition'],
             name: questionObject.responses[i].name,
-            questionNode: null
+            type: 'Condition',
+            nextNodeId: null
         });
         responseArray.push({
+            nodeType: 'Condition',
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
             nextNodeId: null,
@@ -175,7 +184,7 @@ function questionHandler(questionObject) {
 
     questionNodeObject = {
         questionId: questionObject.questionId,
-        NodeType: questionObject.typeName,
+        NodeType: 'Question',
         question: questionObject.text,
         nextNodeId: null,
         chatEnded: false,
@@ -186,11 +195,15 @@ function questionHandler(questionObject) {
         questionNodeObject.responses = responseArray;
     }
 
-    currentNode[0].questionNode = questionNodeObject;
-    flowBot.nodes.push(currentNode[0].questionNode);
+    newNode.questionNode = questionNodeObject;
+
+    //nodeArray.push(newNode);
+
+    flowBot.nodes.push(newNode.questionNode);
   
     console.log(JSON.stringify(flowBot));
-    modal.style.display = 'none';        //close modal
+    modal.style.display = 'none'; 
+    console.log(JSON.stringify(nodeArray));       //close modal
     chart.draw();
 }
 
@@ -235,22 +248,67 @@ const vA_Handler = (id) => {
 //making a queue of subtree for delete
 //it is like push and pop a queue concept
 const removeQuestionHandler = (id) => {
+
     let removeArray = [];
+    let removeFromFlowBot = [];
+    let currentNode = nodeArray.filter(res => res.id === id);
+
+    if(currentNode[0].type === 'Condition'){
+        if(currentNode[0].nextNodeId !== null){
+            removeFromFlowBot.push(currentNode[0].nextNodeId);
+        }
+
+        let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
+
+        for(let i = 0; i < parent[0].questionNode.responses.length; i++) {
+            if(parent[0].questionNode.responses[i].name === currentNode[0].name){
+                parent[0].questionNode.responses.splice(i,1);
+            }
+        }
+    } else if(currentNode[0].type === 'Question') {
+        removeFromFlowBot.push(currentNode[0].questionNode.questionId);
+    }
+
+    while(removeFromFlowBot.length){
+        let temp = removeFromFlowBot[0];
+
+        //if(temp)
+        let index = null;
+        for (let i = 0; i < flowBot.nodes.length; i++){      
+            if(flowBot.nodes[i].questionId === temp){
+                index = i;
+                if(flowBot.nodes[i].nextNodeId !== null){
+                    removeFromFlowBot.push(flowBot.nodes[i].nextNodeId);
+                } else {
+                    for(let j = 0; j < flowBot.nodes[i].responses; j++) {
+                        if(flowBot.nodes[i].responses[j].nextNodeId !== null) {
+                            removeFromFlowBot.push(flowBot.nodes[i].responses[j].nextNodeId);
+                        }
+                    }
+                }
+            }
+        }
+        if(index !== null) flowBot.nodes.splice(index,1);
+        removeFromFlowBot.splice(0,1);
+    }
+
     removeArray.push(id);
+    
     // remove the subtree which root id is id in the tree
     while (removeArray.length){
         id = removeArray[0];
         removeArray.splice(0,1);
         // remove the current node and push all child of this current node in the removeArray
         for (let i = 0; i < nodeArray.length; i++){      
-            if (nodeArray[i].id === id){             
+            if (nodeArray[i].id === id){
                 nodeArray.splice(i,1);
-                i--;
-            } else if (nodeArray[i].pid === id){
+                i--;          
+            } else if (nodeArray[i].pid === id) {
                 removeArray.push(nodeArray[i].id);
             }
         }
     }
+    console.log(JSON.stringify(flowBot));
     chart.draw();
 }
 
@@ -332,6 +390,8 @@ function mousedownHandler(e) {
     var leaveHandler = function() {
         if (tonode && (tonode.id != fromnode.id)) {
             sender.addSlink(fromnode.id, tonode.id).draw();
+            flowBot.slink.push({from: fromnode.id, to: tonode.id});
+            console.log(flowBot);
         }
         removeLine();
 
@@ -501,16 +561,49 @@ function findShortestDistanceBetweenPointerAndNode(fromNode, p) {
 
 var nodes = nodeArray;
 
+OrgChart.templates.mery.link = '<path stroke-linejoin="round" stroke="#aeaeae" stroke-width="1px" fill="none" d="{edge}" />';
+OrgChart.templates.mery.node = '<rect stroke="#aeaeae" stroke-width="1px" x="15" y="0"  fill="#FE5639" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.mery.field_0 = '<text width="230" style="font-size: 20px;" fill="#ffffff" x="125" y="50" text-anchor="middle" class="field_0">START</text>';
+OrgChart.templates.mery.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
+                                        +'<rect x="190" y="75"  fill="#FEA139" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="210" y="94" text-anchor="middle" class="field_0">+</text></g>';
+
+OrgChart.templates.ana.link = '<path stroke-linejoin="round" stroke="#aeaeae" stroke-width="1px" fill="none" d="{edge}" />';
+OrgChart.templates.ana.node = '<rect stroke="#aeaeae" stroke-width="1px" x="30" y="0"  fill="#A1EAB3" style="width: 200px; height: 90px;" rx="30" ry="30" ></rect>';
+OrgChart.templates.ana.field_0 = '<text width="230" style="font-size: 14px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.ana.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
+                                        +'<rect x="175" y="65"  fill="#A5AD03" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="195" y="84" text-anchor="middle" class="field_0">+</text></g>';
+
 //customization in design of node field and menu button 
-OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 12px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
-OrgChart.templates.ula.field_1 = '<text width="230" style="font-size: 10px;" fill="#000000" x="125" y="60" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.ula.node = '<rect stroke="#aeaeae" stroke-width="1px" x="15" y="0"  fill="#D89E3E" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 14px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
 OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
-                                        +'<rect x="205" y="75"  fill="#0099ff" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
-                                        +'<text width="230" style="font-size: 10px; cursor: pointer;" fill="#ffffff" x="225" y="88" text-anchor="middle" class="field_0">Query</text></g>';
+                                        +'<rect x="190" y="75"  fill="#D8553E" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="210" y="94" text-anchor="middle" class="field_0">+</text></g>';
+
+OrgChart.templates.isla.node = '<rect stroke="#aeaeae" stroke-width="1px" x="-20" y="0"  fill="#2B2727" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.isla.field_0 = '<text width="230" style="font-size: 20px;" fill="#ffffff" x="90" y="52" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.isla.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}"></g>';
+
 //OrgChart implementation
 var chart = new OrgChart(document.getElementById("tree"), {
     mouseScrool: OrgChart.action.scroll,
     template: "ula",
+    tags: {
+        Start: {
+            template: "mery"
+        },
+        Condition: {
+            template: "ana"
+        },
+        Question: {
+            template: "ula"
+        },
+        End: {
+            template: "isla"
+        }
+    },
 
     nodeMenu: {
         askQuestion: {
@@ -544,8 +637,7 @@ var chart = new OrgChart(document.getElementById("tree"), {
         }
     },
     nodeBinding: {
-        field_0: "name",
-        field_1: "questionName"
+        field_0: "name"
     },
 
     nodes: nodes
