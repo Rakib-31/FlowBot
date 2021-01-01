@@ -1,17 +1,29 @@
-export function hello(){//each response nodes of a question
+
+
+
+//each response nodes of a question
 //are getting this parentId as their
 // parent node id
 var parentId = null;
-var flowBot = {tenant: 'ema',nodes: []};
-var nodeArray = [{ id: 1, name: "Press the button to ask any query" }];
+var flowBot = {tenant: 'ema',nodes: [], slink: []};
+var nodeArray = [{ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
 var questionArray = null;
-var xx = 'js';
+
 //fetching data from the server and set it to the questionArray
-axios.get( './data.json' ).then( data => questionArray = data.data.data );
+axios.get( './data.json' ).then( data =>{ 
+    questionArray = data.data.data;
+    let str = [];
+    for (let i = 0; i < questionArray.questions.length; i++){
+        let m = str.indexOf(questionArray.questions[i].responseType);
+        if(m === -1) str.push(questionArray.questions[i].responseType);
+    }
+    console.log(str);
+});
 
 
 var searchBar = document.getElementById('search-bar'); // select search bar from the dom
 var modal = document.getElementById("myModal");        // select modal from dom
+let questionOption = document.getElementById('question-option');
 
 
 var span = document.getElementsByClassName("close")[0];  //select cross button from modal
@@ -102,58 +114,100 @@ const addConditionHandler = (id) => {
 
 
 const endSessionHandler = (id) => {
-    if(prevNode !== null){
-        prevNode.chatEnded = true;
+
+    let endNode = nodeArray.filter(result => result.id === id);
+
+    if(endNode[0].type === 'Condition'){
+        //endNode[0].nextNodeId = 0;
+        let anotherNode = nodeArray.filter(res => res.id === endNode[0].pid);
+        anotherNode[0].questionNode.chatEnded = true;
+        console.log(anotherNode);
+        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
+        responseNode[0].chatEnded = true;
+    } else if (endNode[0].type === 'Question') {
+        endNode[0].questionNode.chatEnded = true;
     }
+
     console.log(JSON.stringify(flowBot));
-    nodeArray.push({ id: 0, pid: id, name: 'End Session' });
+
+    nodeArray.push({id: 0,tags: ['End'], pid: id, name: 'End Session'});
+    
     chart.draw();
 }
 
-
 // response handling after select a question
-var prevNode = null;
+var questionNodeObject = null;
 
-function questionHandler(questionObject) {
-    let currentNode = nodeArray.filter((res) => res.id === parentId);   // set current node as parent node for the selected question's response node
-    if(prevNode !== null){
-        let temp = prevNode.responses.filter(res => res.name === currentNode[0].name);
-        console.log(temp);
-        temp[0].nextQuestionId = questionObject.questionId;
+function questionHandler(questionObject) { 
+
+    let node = nodeArray.filter(res => res.id === parentId);
+    if(node[0].type === 'Condition'){
+        let anotherNode = nodeArray.filter(res => res.id === node[0].pid);
+        console.log(anotherNode);
+        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === node[0].name);
+        responseNode[0].nextNodeId = questionObject.questionId;
+        node[0].nextNodeId = questionObject.questionId;
     }
-    
-    currentNode[0].questionName = questionObject.text;
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); // sort response for view by order in the question tree
-    
+
+    if(node[0].type === 'Question'){
+        node[0].questionNode.nextNodeId = questionObject.questionId;
+    }
+
+    let newNode = {
+        id: nodeArray.length + 1,
+        pid: parentId,
+        tags: ['Question'],
+        name: questionObject.text,
+        type: 'Question',
+        questionNode: null
+    }
+    nodeArray.push(newNode);
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
+
     var responseArray = [];
-    // pushing all response node into question tree
+    // pushing all response node into question tree if any response node is there
     for(let i = 0; i < questionObject.responses.length; i++){
         nodeArray.push({
             id: nodeArray.length + 1,
-            pid: parentId,
-            name: questionObject.responses[i].name
+            pid: newNode.id,
+            parentQid: questionObject.questionId,
+            tags: ['Condition'],
+            name: questionObject.responses[i].name,
+            type: 'Condition',
+            nextNodeId: null
         });
         responseArray.push({
+            nodeType: 'Condition',
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
-            nextQuestionId: null
+            nextNodeId: null,
+            chatEnded: false,
+            slink: null
         });
     }
 
-    //set the current node as previous node
-    prevNode = {
+    questionNodeObject = {
         questionId: questionObject.questionId,
-        NodeType: questionObject.typeName,
+        NodeType: 'Question',
         question: questionObject.text,
-        nextQuestionId: null,
+        nextNodeId: null,
         chatEnded: false,
-        responses: responseArray
+        responses: null
     }
-    //push the current node into flowBot
-    flowBot.nodes.push(prevNode);  
+
+    if(responseArray.length){
+        questionNodeObject.responses = responseArray;
+    }
+
+    newNode.questionNode = questionNodeObject;
+
+    //nodeArray.push(newNode);
+
+    flowBot.nodes.push(newNode.questionNode);
+  
     console.log(JSON.stringify(flowBot));
-    modal.style.display = 'none';        //close modal
-    console.log(nodeArray);
+    modal.style.display = 'none'; 
+    console.log(JSON.stringify(nodeArray));       //close modal
     chart.draw();
 }
 
@@ -168,26 +222,471 @@ const askQuestionHandler = (id) => {
     modal.style.display = "block";
 }
 
+const questionTypeHandler = (id, type) => {
+    console.log(id, type);
+}
+
+
+const vA_Handler = (id) => {
+     
+    if(offsetX + 200 > screen.width){
+        offsetX -= 200;
+    }
+    if(offsetY + 200 > screen.height){
+        offsetY -= 100;
+    }
+    questionOption.style.left = offsetX + 'px';
+    questionOption.style.top = offsetY + 'px';
+    
+    let div = `
+        <div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Question')" value="Question"/></div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Condition')" value="Condition"/></div>
+            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'End')" value="End"/></div>
+        </div>
+    `
+    questionOption.innerHTML = div;
+}
+
 
 //making a queue of subtree for delete
 //it is like push and pop a queue concept
 const removeQuestionHandler = (id) => {
+
     let removeArray = [];
+    let removeFromFlowBot = [];
+    let currentNode = nodeArray.filter(res => res.id === id);
+
+    if(currentNode[0].type === 'Condition'){
+        if(currentNode[0].nextNodeId !== null){
+            removeFromFlowBot.push(currentNode[0].nextNodeId);
+        }
+
+        let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
+        let parentResponses = parent[0].questionNode.responses;
+
+        for(let i = 0; i < parentResponses.length; i++) {
+            if(parentResponses[i].name === currentNode[0].name){
+                parentResponses.splice(i,1);
+            }
+        }
+    } else if(currentNode[0].type === 'Question') {
+        removeFromFlowBot.push(currentNode[0].questionNode.questionId);
+    }
+
+    while(removeFromFlowBot.length){
+        let temp = removeFromFlowBot[0];
+
+        //if(temp)
+        let index = null;
+        for (let i = 0; i < flowBot.nodes.length; i++){      
+            if(flowBot.nodes[i].questionId === temp){
+                index = i;
+                if(flowBot.nodes[i].nextNodeId !== null){
+                    removeFromFlowBot.push(flowBot.nodes[i].nextNodeId);
+                } else {
+                    let currentNodeResponses = flowBot.nodes[i].responses;
+                    for(let j = 0; j < currentNodeResponses; j++) {
+                        if(currentNodeResponses[j].nextNodeId !== null) {
+                            removeFromFlowBot.push(currentNodeResponses[j].nextNodeId);
+                        }
+                    }
+                }
+            }
+        }
+        if(index !== null) flowBot.nodes.splice(index,1);
+        removeFromFlowBot.splice(0,1);
+    }
+
     removeArray.push(id);
+    
     // remove the subtree which root id is id in the tree
     while (removeArray.length){
         id = removeArray[0];
         removeArray.splice(0,1);
         // remove the current node and push all child of this current node in the removeArray
         for (let i = 0; i < nodeArray.length; i++){      
-            if (nodeArray[i].id === id){             
+            if (nodeArray[i].id === id){
                 nodeArray.splice(i,1);
-                i--;
-            } else if (nodeArray[i].pid === id){
+                i--;          
+            } else if (nodeArray[i].pid === id) {
                 removeArray.push(nodeArray[i].id);
             }
         }
     }
+    console.log(JSON.stringify(flowBot));
     chart.draw();
 }
+
+const deleteChildFromQuestionOptionDiv = () => {
+    questionOption.innerHTML = '';
 }
+
+var nodeElements = null;
+OrgChart.events.on('redraw', function(sender) {
+    nodeElements = sender.getSvg().querySelectorAll('[node-id]');
+
+    deleteChildFromQuestionOptionDiv();
+
+    for (var i = 0; i < nodeElements.length; i++) {
+        let t = nodeElements[0].ownerSVGElement;
+        nodeElements[i].sender = sender;
+        
+        nodeElements[i].addEventListener('mousedown', mousedownHandler);
+    }
+});
+
+
+//
+const sLinkHandler = (fromnodeId, tonodeId) => {
+    let count = 0;
+    let arr = [];
+    let fromnode = nodeArray.filter(res => res.id === fromnodeId);
+    let parentOfFromnode = nodeArray.filter(res => res.id === fromnode[0].pid);
+    let responseOfFromnodeParent = parentOfFromnode[0].questionNode.responses;
+    let currentResponseNode = responseOfFromnodeParent.filter(res => res.name === fromnode[0].name);
+    let tonode = nodeArray.filter(res => res.id === tonodeId);
+    let tonodeQuestionId = tonode[0].questionNode.questionId;
+    currentResponseNode[0].slink = tonodeQuestionId;
+    let xx = parentOfFromnode[0].questionNode;
+    
+    for(let i = 0; i < responseOfFromnodeParent.length; i++) {
+        if(responseOfFromnodeParent[i].nextNodeId !== null){
+            if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
+                arr.push(responseOfFromnodeParent[i].nextNodeId);
+            }
+            count++;
+        } else if(responseOfFromnodeParent[i].slink !== null){
+            if(arr.indexOf(responseOfFromnodeParent[i].slink) === -1) {
+                arr.push(responseOfFromnodeParent[i].slink);
+            }
+            count++;
+        }
+    }
+    if(count === responseOfFromnodeParent.length && arr.length === 1){
+        console.log('truely relational');
+        parentOfFromnode[0].questionNode.nextNodeId = tonodeQuestionId;
+        console.log(JSON.stringify(flowBot));
+    }
+}
+
+// For nodeType option x,y coordinate
+//position setup on the svg
+var offsetX;
+var offsetY;
+
+function mousedownHandler(e) {
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
+    var sender = this.sender;
+
+    var svg = e.target;
+    while (svg.nodeName != 'svg') {
+        svg = svg.parentNode;
+    }
+
+    var w = parseInt(svg.getAttribute('width'));
+    var h = parseInt(svg.getAttribute('height'));
+    
+    var viewBox = svg.getAttribute("viewBox");
+    viewBox = "[" + viewBox + "]";
+    viewBox = viewBox.replace(/\ /g, ",");
+    viewBox = JSON.parse(viewBox);
+
+    var scaleX = w / viewBox[2];
+    var scaleY = h / viewBox[3];
+
+    var scale = scaleX > scaleY ? scaleY : scaleX;
+
+    var fromnode = sender.getNode(this.getAttribute('node-id'));
+    var tonode = null;
+
+
+    var moveHandler = function(e) {
+        if (tonode && (tonode.id != fromnode.id)) {
+            var shortest = findShortestDistance(fromnode, tonode);
+            line(svg, shortest.start, shortest.end);
+            //line(svg, tonode.middle, fromnode.middle);
+        } else {
+            var end = {
+                x: (e.offsetX / scale + viewBox[0]),
+                y: (e.offsetY / scale + viewBox[1])
+            }
+            
+            var shortest = findShortestDistanceBetweenPointerAndNode(fromnode, end)
+            line(svg, shortest.start, shortest.end);
+        }
+
+    };
+
+    var mouseenterHandler = function() {
+        tonode = sender.getNode(this.getAttribute('node-id'));
+    }
+
+    var mouseleaveHandler = function() {
+        tonode = null;
+    }
+
+    var leaveHandler = function() {
+        if (tonode && (tonode.id != fromnode.id)) {
+            sender.addSlink(fromnode.id, tonode.id).draw();
+            console.log(fromnode.id, tonode.id);
+            sLinkHandler(fromnode.id, tonode.id);
+            flowBot.slink.push({from: fromnode.id, to: tonode.id});
+            console.log(flowBot);
+        }
+        removeLine();
+
+        svg.removeEventListener('mousemove', moveHandler);
+        svg.removeEventListener('mouseup', leaveHandler);
+        svg.removeEventListener('mouseleave', leaveHandler);
+
+        var nodeElements = sender.getSvg().querySelectorAll('[node-id]');
+        for (var i = 0; i < nodeElements.length; i++) {
+            nodeElements[i].removeEventListener('mouseenter', mouseenterHandler);
+            nodeElements[i].removeEventListener('mouseleave', mouseleaveHandler);
+        }
+    };
+
+    svg.addEventListener('mousemove', moveHandler);
+    svg.addEventListener('mouseup', leaveHandler);
+    svg.addEventListener('mouseleave', leaveHandler);
+
+    var nodeElements = sender.getSvg().querySelectorAll('[node-id]');
+    for (var i = 0; i < nodeElements.length; i++) {
+        nodeElements[i].addEventListener('mouseenter', mouseenterHandler);
+        nodeElements[i].addEventListener('mouseleave', mouseleaveHandler);
+    }
+}
+
+
+function line(svg, start, end) {
+
+    var line = document.querySelector('#bgline');
+    if (!line) {
+        var xmlns = "http://www.w3.org/2000/svg";
+        line = document.createElementNS(xmlns, 'line');
+        line.setAttributeNS(null, 'stroke-linejoin', 'round')
+        line.setAttributeNS(null, 'stroke', '#aeaeae');
+        line.setAttributeNS(null, 'stroke-width', '1px');
+        line.setAttributeNS(null, 'id', 'bgline');
+        line.setAttributeNS(null, 'marker-start', 'url(#dotSelected)');
+        line.setAttributeNS(null, 'marker-end', 'url(#arrowSelected)');
+
+        svg.appendChild(line);
+    }
+
+    line.setAttributeNS(null, 'x1', start.x);
+    line.setAttributeNS(null, 'y1', start.y);
+    line.setAttributeNS(null, 'x2', end.x);
+    line.setAttributeNS(null, 'y2', end.y);
+}
+
+
+function removeLine() {
+    var line = document.querySelector('#bgline');
+    if (line) {
+        line.parentNode.removeChild(line);
+    }
+}
+
+
+OrgChart.events.on('renderdefs', function(sender, args) {
+    args.defs += '<marker id="arrowSelected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path fill="blue" d="M 0 0 L 10 5 L 0 10 z" /></marker><marker id="dotSelected" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"> <circle cx="5" cy="5" r="5" fill="blue" /></marker>';
+});
+
+
+function findShortestDistance(fromNode, toNode) {
+    var fromNodepoints = [];
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w / 2,
+        y: fromNode.y
+    });
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w,
+        y: fromNode.y + fromNode.h / 2
+    });
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w / 2,
+        y: fromNode.y + fromNode.h
+    });
+    fromNodepoints.push({
+        x: fromNode.x,
+        y: fromNode.y + fromNode.h / 2
+    });
+
+    var toNodepoints = [];
+    toNodepoints.push({
+        x: toNode.x + toNode.w / 2,
+        y: toNode.y
+    });
+    toNodepoints.push({
+        x: toNode.x + toNode.w,
+        y: toNode.y + toNode.h / 2
+    });
+    toNodepoints.push({
+        x: toNode.x + toNode.w / 2,
+        y: toNode.y + toNode.h
+    });
+    toNodepoints.push({
+        x: toNode.x,
+        y: toNode.y + toNode.h / 2
+    });
+
+    var dist = null;
+    var distPoint = {};
+    for (var i = 0; i < fromNodepoints.length; i++) {
+        for (var j = 0; j < toNodepoints.length; j++) {
+            var cur = Math.sqrt((toNodepoints[j].x - fromNodepoints[i].x) * (toNodepoints[j].x - fromNodepoints[i].x) + (toNodepoints[j].y - fromNodepoints[i].y) * (toNodepoints[j].y - fromNodepoints[i].y));
+            if (dist == null) {
+                dist = cur;
+                distPoint = {
+                    i: i,
+                    j: j
+                };
+            } else if (cur < dist) {
+                distPoint = {
+                    i: i,
+                    j: j
+                };
+                dist = cur;
+            }
+        }
+    }
+
+    return {
+        start: fromNodepoints[distPoint.i],
+        end: toNodepoints[distPoint.j]
+    }
+}
+
+
+function findShortestDistanceBetweenPointerAndNode(fromNode, p) {
+    var fromNodepoints = [];
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w / 2,
+        y: fromNode.y
+    });
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w,
+        y: fromNode.y + fromNode.h / 2
+    });
+    fromNodepoints.push({
+        x: fromNode.x + fromNode.w / 2,
+        y: fromNode.y + fromNode.h
+    });
+    fromNodepoints.push({
+        x: fromNode.x,
+        y: fromNode.y + fromNode.h / 2
+    });
+
+
+    var dist = null;
+    var distPoint = null;
+    for (var i = 0; i < fromNodepoints.length; i++) {
+        var cur = Math.sqrt((p.x - fromNodepoints[i].x) * (p.x - fromNodepoints[i].x) + (p.y - fromNodepoints[i].y) * (p.y - fromNodepoints[i].y));
+        if (dist == null) {
+            dist = cur;
+            distPoint = i;
+        } else if (cur < dist) {
+            distPoint = i;
+            dist = cur;
+        }
+    }
+
+    return {
+        start: fromNodepoints[distPoint],
+        end: p
+    };
+}
+
+
+var nodes = nodeArray;
+
+OrgChart.templates.mery.link = '<path stroke-linejoin="round" stroke="#aeaeae" stroke-width="1px" fill="none" d="{edge}" />';
+OrgChart.templates.mery.node = '<rect stroke="#aeaeae" stroke-width="1px" x="15" y="0"  fill="#FE5639" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.mery.field_0 = '<text width="230" style="font-size: 20px;" fill="#ffffff" x="125" y="50" text-anchor="middle" class="field_0">START</text>';
+OrgChart.templates.mery.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
+                                        +'<rect x="190" y="75"  fill="#FEA139" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="210" y="94" text-anchor="middle" class="field_0">+</text></g>';
+
+OrgChart.templates.ana.link = '<path stroke-linejoin="round" stroke="#aeaeae" stroke-width="1px" fill="none" d="{edge}" />';
+OrgChart.templates.ana.node = '<rect stroke="#aeaeae" stroke-width="1px" x="30" y="0"  fill="#A1EAB3" style="width: 200px; height: 90px;" rx="30" ry="30" ></rect>';
+OrgChart.templates.ana.field_0 = '<text width="230" style="font-size: 14px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.ana.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
+                                        +'<rect x="175" y="65"  fill="#A5AD03" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="195" y="84" text-anchor="middle" class="field_0">+</text></g>';
+
+//customization in design of node field and menu button 
+OrgChart.templates.ula.node = '<rect stroke="#aeaeae" stroke-width="1px" x="15" y="0"  fill="#D89E3E" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 14px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
+                                        +'<rect x="190" y="75"  fill="#D8553E" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
+                                        +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="210" y="94" text-anchor="middle" class="field_0">+</text></g>';
+
+OrgChart.templates.isla.node = '<rect stroke="#aeaeae" stroke-width="1px" x="-20" y="0"  fill="#2B2727" style="width: 220px; height: 100px;" ></rect>';
+OrgChart.templates.isla.field_0 = '<text width="230" style="font-size: 20px;" fill="#ffffff" x="90" y="52" text-anchor="middle" class="field_0">{val}</text>';
+OrgChart.templates.isla.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}"></g>';
+
+//OrgChart implementation
+var chart = new OrgChart(document.getElementById("tree"), {
+    mouseScrool: OrgChart.action.scroll,
+    template: "ula",
+    tags: {
+        Start: {
+            template: "mery"
+        },
+        Condition: {
+            template: "ana"
+        },
+        Question: {
+            template: "ula"
+        },
+        End: {
+            template: "isla"
+        }
+    },
+
+    nodeMenu: {
+        askQuestion: {
+            icon: "",
+            text: "Ask Question",
+            onClick: askQuestionHandler
+        },
+
+        // condition: {
+        //     icon: "",
+        //     text: "Add Condition",
+        //     onClick: addConditionHandler
+        // },
+
+        goToAnotherVA: {
+            icon: "",
+            text: "Go to another V/A",
+            onClick: vA_Handler
+        },
+
+        remove: {
+            icon: "",
+            text: "Remove Question",
+            onClick: removeQuestionHandler
+        },
+
+        endsession: {
+            icon: "",
+            text: "End Session",
+            onClick: endSessionHandler
+        }
+    },
+    nodeBinding: {
+        field_0: "name"
+    },
+
+    nodes: nodes
+});
+
+//nothing will happen on chart node click
+chart.on('click', (a, b) => {
+    deleteChildFromQuestionOptionDiv();
+    return false;
+});

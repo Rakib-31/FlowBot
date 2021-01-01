@@ -110,16 +110,17 @@ const addConditionHandler = (id) => {
 }
 
 
+// end node controller
 const endSessionHandler = (id) => {
 
     let endNode = nodeArray.filter(result => result.id === id);
 
     if(endNode[0].type === 'Condition'){
         //endNode[0].nextNodeId = 0;
-        let anotherNode = nodeArray.filter(res => res.id === endNode[0].pid);
-        anotherNode[0].questionNode.chatEnded = true;
-        console.log(anotherNode);
-        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
+         let endParentNode= nodeArray.filter(res => res.id === endNode[0].pid);
+        endParentNode[0].questionNode.chatEnded = true;
+        console.log(endParentNode);
+        let responseNode = endParentNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
         responseNode[0].chatEnded = true;
     } else if (endNode[0].type === 'Question') {
         endNode[0].questionNode.chatEnded = true;
@@ -150,7 +151,7 @@ function questionHandler(questionObject) {
         node[0].questionNode.nextNodeId = questionObject.questionId;
     }
 
-    let newNode = {
+    let newNode = {                    //should be pushed in selected node in nodearray and flowbot also.
         id: nodeArray.length + 1,
         pid: parentId,
         tags: ['Question'],
@@ -159,7 +160,7 @@ function questionHandler(questionObject) {
         questionNode: null
     }
     nodeArray.push(newNode);
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); //sort for the purpose of view order
 
     var responseArray = [];
     // pushing all response node into question tree if any response node is there
@@ -173,15 +174,18 @@ function questionHandler(questionObject) {
             type: 'Condition',
             nextNodeId: null
         });
-        responseArray.push({
+        responseArray.push({                         //flowbot node's responses
             nodeType: 'Condition',
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
             nextNodeId: null,
-            chatEnded: false
+            chatEnded: false,
+            slink: null
         });
     }
 
+    //this should be same for specific node and its corresponding element in flowbot
+    //so that when one chande its nature another can be change automatically
     questionNodeObject = {
         questionId: questionObject.questionId,
         NodeType: 'Question',
@@ -224,23 +228,36 @@ const questionTypeHandler = (id, type) => {
 
 
 const vA_Handler = (id) => {
-     
-    if(offsetX + 200 > screen.width){
+    // out of box on x axis
+    if(offsetX + 240 > screen.width){
         offsetX -= 200;
     }
-    if(offsetY + 200 > screen.height){
-        offsetY -= 100;
+    // out of box on y axis
+    if(offsetY + 300 > screen.height){
+        offsetY -= 240;
     }
     questionOption.style.left = offsetX + 'px';
     questionOption.style.top = offsetY + 'px';
+
+    let bot = ['Fisycal Score Victory Assessment',  'Pain Recorder Virtual Assessment',
+                'Appointment Virtual Assessment', 'Lead Generator', 'Symptom',
+                'Precall Test Virtual Assessment', 'Intake'
+              ];
+    let div = '<div style="overflow-y: scroll; height: 200px;">'
+
+    for(let i = 0; i < bot.length; i++) {
+        div += `<div >
+                    <input 
+                        style="background-color: #882200; color: white; text-align: center;
+                        font-size: 14px;
+                        border: none; border-bottom: 1px solid !important; border-radius: 0px; 
+                        cursor: pointer; width: 240px;" type="text" readonly 
+                        onclick="questionTypeHandler(${id}, ${bot[i]})" value="${bot[i]}"
+                    />
+                </div>`
+    }
+    div += '</div>'
     
-    let div = `
-        <div>
-            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Question')" value="Question"/></div>
-            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'Condition')" value="Condition"/></div>
-            <div><input style="background-color: #882200; color: white; text-align: center; border: none; border-bottom: 1px solid !important; border-radius: 0px; cursor: pointer; width: 200px;" type="text" readonly onclick="questionTypeHandler(${id}, 'End')" value="End"/></div>
-        </div>
-    `
     questionOption.innerHTML = div;
 }
 
@@ -252,21 +269,30 @@ const removeQuestionHandler = (id) => {
     let removeArray = [];
     let removeFromFlowBot = [];
     let currentNode = nodeArray.filter(res => res.id === id);
-
+    //remove from flowbot
     if(currentNode[0].type === 'Condition'){
         if(currentNode[0].nextNodeId !== null){
             removeFromFlowBot.push(currentNode[0].nextNodeId);
         }
 
         let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
+        let parentResponses = parent[0].questionNode.responses;
 
-        for(let i = 0; i < parent[0].questionNode.responses.length; i++) {
-            if(parent[0].questionNode.responses[i].name === currentNode[0].name){
-                parent[0].questionNode.responses.splice(i,1);
+        for(let i = 0; i < parentResponses.length; i++) {
+            if(parentResponses[i].name === currentNode[0].name){
+                parentResponses.splice(i,1);
             }
         }
     } else if(currentNode[0].type === 'Question') {
         removeFromFlowBot.push(currentNode[0].questionNode.questionId);
+        let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
+        if(parent[0].type === 'Question'){
+            parent[0].questionNode.nextNodeId = null;
+        } else if(parent[0].type === 'Condition'){
+            let parentOfParent = nodeArray.filter(res => res.id === parent[0].pid);
+            let responses = parentOfParent[0].questionNode.responses.filter(res => res.name === parent[0].name);
+            responses[0].nextNodeId = null;
+        }
     }
 
     while(removeFromFlowBot.length){
@@ -280,18 +306,21 @@ const removeQuestionHandler = (id) => {
                 if(flowBot.nodes[i].nextNodeId !== null){
                     removeFromFlowBot.push(flowBot.nodes[i].nextNodeId);
                 } else {
-                    for(let j = 0; j < flowBot.nodes[i].responses; j++) {
-                        if(flowBot.nodes[i].responses[j].nextNodeId !== null) {
-                            removeFromFlowBot.push(flowBot.nodes[i].responses[j].nextNodeId);
+                    let currentNodeResponses = flowBot.nodes[i].responses;
+                    for(let j = 0; j < currentNodeResponses.length; j++) {
+                        if(currentNodeResponses[j].nextNodeId !== null) {
+                            removeFromFlowBot.push(currentNodeResponses[j].nextNodeId);
                         }
                     }
                 }
+                break;
             }
         }
         if(index !== null) flowBot.nodes.splice(index,1);
         removeFromFlowBot.splice(0,1);
     }
 
+    //remove from nodearray
     removeArray.push(id);
     
     // remove the subtree which root id is id in the tree
@@ -316,6 +345,8 @@ const deleteChildFromQuestionOptionDiv = () => {
     questionOption.innerHTML = '';
 }
 
+
+//call every time when needs chart redraw 
 var nodeElements = null;
 OrgChart.events.on('redraw', function(sender) {
     nodeElements = sender.getSvg().querySelectorAll('[node-id]');
@@ -329,6 +360,39 @@ OrgChart.events.on('redraw', function(sender) {
         nodeElements[i].addEventListener('mousedown', mousedownHandler);
     }
 });
+
+
+//handling dragging link
+const sLinkHandler = (fromnodeId, tonodeId) => {
+    let count = 0;
+    let arr = [];
+    let fromnode = nodeArray.filter(res => res.id === fromnodeId);
+    let parentOfFromnode = nodeArray.filter(res => res.id === fromnode[0].pid);
+    let responseOfFromnodeParent = parentOfFromnode[0].questionNode.responses;
+    let currentResponseNode = responseOfFromnodeParent.filter(res => res.name === fromnode[0].name);
+    let tonode = nodeArray.filter(res => res.id === tonodeId);
+    let tonodeQuestionId = tonode[0].questionNode.questionId;
+    currentResponseNode[0].slink = tonodeQuestionId;
+    
+    for(let i = 0; i < responseOfFromnodeParent.length; i++) {
+        if(responseOfFromnodeParent[i].nextNodeId !== null){
+            if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
+                arr.push(responseOfFromnodeParent[i].nextNodeId);
+            }
+            count++;
+        } else if(responseOfFromnodeParent[i].slink !== null){
+            if(arr.indexOf(responseOfFromnodeParent[i].slink) === -1) {
+                arr.push(responseOfFromnodeParent[i].slink);
+            }
+            count++;
+        }
+    }
+    if(count === responseOfFromnodeParent.length && arr.length === 1){
+        console.log('truely relational');
+        parentOfFromnode[0].questionNode.nextNodeId = tonodeQuestionId;
+        console.log(JSON.stringify(flowBot));
+    }
+}
 
 // For nodeType option x,y coordinate
 //position setup on the svg
@@ -390,6 +454,8 @@ function mousedownHandler(e) {
     var leaveHandler = function() {
         if (tonode && (tonode.id != fromnode.id)) {
             sender.addSlink(fromnode.id, tonode.id).draw();
+            console.log(fromnode.id, tonode.id);
+            sLinkHandler(fromnode.id, tonode.id);
             flowBot.slink.push({from: fromnode.id, to: tonode.id});
             console.log(flowBot);
         }
@@ -426,7 +492,7 @@ function line(svg, start, end) {
         line = document.createElementNS(xmlns, 'line');
         line.setAttributeNS(null, 'stroke-linejoin', 'round')
         line.setAttributeNS(null, 'stroke', '#aeaeae');
-        line.setAttributeNS(null, 'stroke-width', '1px');
+        line.setAttributeNS(null, 'stroke-width', '3px');
         line.setAttributeNS(null, 'id', 'bgline');
         line.setAttributeNS(null, 'marker-start', 'url(#dotSelected)');
         line.setAttributeNS(null, 'marker-end', 'url(#arrowSelected)');
@@ -450,7 +516,15 @@ function removeLine() {
 
 
 OrgChart.events.on('renderdefs', function(sender, args) {
-    args.defs += '<marker id="arrowSelected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path fill="blue" d="M 0 0 L 10 5 L 0 10 z" /></marker><marker id="dotSelected" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"> <circle cx="5" cy="5" r="5" fill="blue" /></marker>';
+    args.defs += `<marker id="arrowSelected"
+                    viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6"
+                    markerHeight="6" orient="auto-start-reverse">
+                    <path fill="blue" d="M 0 0 L 10 5 L 0 10 z" />
+                  </marker>
+                <marker id="dotSelected" viewBox="0 0 10 10" refX="5" refY="5"
+                    markerWidth="5" markerHeight="5"> 
+                    <circle cx="5" cy="5" r="5" fill="blue" />
+                </marker>`;
 });
 
 
@@ -495,7 +569,10 @@ function findShortestDistance(fromNode, toNode) {
     var distPoint = {};
     for (var i = 0; i < fromNodepoints.length; i++) {
         for (var j = 0; j < toNodepoints.length; j++) {
-            var cur = Math.sqrt((toNodepoints[j].x - fromNodepoints[i].x) * (toNodepoints[j].x - fromNodepoints[i].x) + (toNodepoints[j].y - fromNodepoints[i].y) * (toNodepoints[j].y - fromNodepoints[i].y));
+            var cur = Math.sqrt((toNodepoints[j].x - fromNodepoints[i].x)
+                                * (toNodepoints[j].x - fromNodepoints[i].x) 
+                                +(toNodepoints[j].y - fromNodepoints[i].y) 
+                                *(toNodepoints[j].y - fromNodepoints[i].y));
             if (dist == null) {
                 dist = cur;
                 distPoint = {
@@ -542,7 +619,10 @@ function findShortestDistanceBetweenPointerAndNode(fromNode, p) {
     var dist = null;
     var distPoint = null;
     for (var i = 0; i < fromNodepoints.length; i++) {
-        var cur = Math.sqrt((p.x - fromNodepoints[i].x) * (p.x - fromNodepoints[i].x) + (p.y - fromNodepoints[i].y) * (p.y - fromNodepoints[i].y));
+        var cur = Math.sqrt((p.x - fromNodepoints[i].x) 
+                            *(p.x - fromNodepoints[i].x)
+                            + (p.y - fromNodepoints[i].y) 
+                            * (p.y - fromNodepoints[i].y));
         if (dist == null) {
             dist = cur;
             distPoint = i;
@@ -592,7 +672,26 @@ var chart = new OrgChart(document.getElementById("tree"), {
     template: "ula",
     tags: {
         Start: {
-            template: "mery"
+            template: "mery",
+            nodeMenu: {
+                askQuestion: {
+                    icon: "",
+                    text: "Ask Question",
+                    onClick: askQuestionHandler
+                },
+        
+                goToAnotherVA: {
+                    icon: "",
+                    text: "Go to another V/A",
+                    onClick: vA_Handler
+                },
+        
+                endsession: {
+                    icon: "",
+                    text: "End Session",
+                    onClick: endSessionHandler
+                }
+            }
         },
         Condition: {
             template: "ana"
