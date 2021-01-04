@@ -9,12 +9,6 @@ var questionArray = null;
 //fetching data from the server and set it to the questionArray
 axios.get( './data.json' ).then( data =>{ 
     questionArray = data.data.data;
-    let str = [];
-    for (let i = 0; i < questionArray.questions.length; i++){
-        let m = str.indexOf(questionArray.questions[i].responseType);
-        if(m === -1) str.push(questionArray.questions[i].responseType);
-    }
-    console.log(str);
 });
 
 
@@ -113,42 +107,40 @@ const addConditionHandler = (id) => {
 // end node controller
 const endSessionHandler = (id) => {
 
-    let endNode = nodeArray.filter(result => result.id === id);
+    let endNode = nodeArray.filter(result => result.id === id)[0];
 
-    if(endNode[0].type === 'Condition'){
-        //endNode[0].nextNodeId = 0;
-         let endParentNode= nodeArray.filter(res => res.id === endNode[0].pid);
-        endParentNode[0].questionNode.chatEnded = true;
-        console.log(endParentNode);
-        let responseNode = endParentNode[0].questionNode.responses.filter(res => res.name === endNode[0].name);
-        responseNode[0].chatEnded = true;
-    } else if (endNode[0].type === 'Question') {
-        endNode[0].questionNode.chatEnded = true;
+    if(endNode.type === 'Condition'){
+         let endParentNode= nodeArray.filter(res => res.id === endNode.pid)[0];
+        endParentNode.questionNode.chatEnded = true;
+        let responseNode = endParentNode.questionNode.responses.filter(res => res.name === endNode.name)[0];
+        responseNode.chatEnded = true;
+    } else if (endNode.type === 'Question') {
+        endNode.questionNode.chatEnded = true;
     }
 
     console.log(JSON.stringify(flowBot));
 
-    nodeArray.push({id: 0,tags: ['End'], pid: id, name: 'End Session'});
+    nodeArray.push({id: 0,tags: ['End'], pid: id, name: 'End Session', questionNode: {questionId: null}});
     
     chart.draw();
 }
+
 
 // response handling after select a question
 var questionNodeObject = null;
 
 function questionHandler(questionObject) { 
 
-    let node = nodeArray.filter(res => res.id === parentId);
-    if(node[0].type === 'Condition'){
-        let anotherNode = nodeArray.filter(res => res.id === node[0].pid);
-        console.log(anotherNode);
-        let responseNode = anotherNode[0].questionNode.responses.filter(res => res.name === node[0].name);
-        responseNode[0].nextNodeId = questionObject.questionId;
-        node[0].nextNodeId = questionObject.questionId;
+    let node = nodeArray.filter(res => res.id === parentId)[0];
+    if(node.type === 'Condition'){
+        let anotherNode = nodeArray.filter(res => res.id === node.pid)[0];
+        let responseNode = anotherNode.questionNode.responses.filter(res => res.name === node.name)[0];
+        responseNode.nextNodeId = questionObject.questionId;
+        node.nextNodeId = questionObject.questionId;
     }
 
-    if(node[0].type === 'Question'){
-        node[0].questionNode.nextNodeId = questionObject.questionId;
+    if(node.type === 'Question'){
+        node.questionNode.nextNodeId = questionObject.questionId;
     }
 
     let newNode = {                    //should be pushed in selected node in nodearray and flowbot also.
@@ -179,6 +171,7 @@ function questionHandler(questionObject) {
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
             nextNodeId: null,
+            nextBot: null,
             chatEnded: false,
             slink: null
         });
@@ -191,7 +184,9 @@ function questionHandler(questionObject) {
         NodeType: 'Question',
         question: questionObject.text,
         nextNodeId: null,
+        nextBot: null,
         chatEnded: false,
+        slink: null,
         responses: null
     }
 
@@ -206,8 +201,7 @@ function questionHandler(questionObject) {
     flowBot.nodes.push(newNode.questionNode);
   
     console.log(JSON.stringify(flowBot));
-    modal.style.display = 'none'; 
-    console.log(JSON.stringify(nodeArray));       //close modal
+    modal.style.display = 'none';        //close modal
     chart.draw();
 }
 
@@ -222,8 +216,18 @@ const askQuestionHandler = (id) => {
     modal.style.display = "block";
 }
 
-const questionTypeHandler = (id, type) => {
-    console.log(id, type);
+const vaTypeHandler = (pId, virtualAssistant) => { 
+    nodeArray.push({id: nodeArray.length+1, pid: pId, name: virtualAssistant, type: 'virtual assistant', questionNode: {nextNodeId: null}});
+    let parent = nodeArray.filter(res => res.id === pId)[0];
+    if(parent.type === 'Condition'){
+        let parentOfParent = nodeArray.filter(res => res.id === parent.pid)[0];
+        let response = parentOfParent.questionNode.responses.filter(res => res.name === parent.name)[0];
+        response.nextBot = virtualAssistant;
+    } else if(parent.type === 'Question'){
+        parent.questionNode.nextBot = virtualAssistant;
+    }
+    chart.draw();
+    console.log(JSON.stringify(flowBot));
 }
 
 
@@ -243,22 +247,30 @@ const vA_Handler = (id) => {
                 'Appointment Virtual Assessment', 'Lead Generator', 'Symptom',
                 'Precall Test Virtual Assessment', 'Intake'
               ];
-    let div = '<div style="overflow-y: scroll; height: 200px;">'
+
+    let outerDiv = document.createElement('div');
+    outerDiv.style = "overflow-y: scroll; height: 200px;";
+    let innerDiv = document.createElement('div');
 
     for(let i = 0; i < bot.length; i++) {
-        div += `<div >
-                    <input 
-                        style="background-color: #882200; color: white; text-align: center;
-                        font-size: 14px;
-                        border: none; border-bottom: 1px solid !important; border-radius: 0px; 
-                        cursor: pointer; width: 240px;" type="text" readonly 
-                        onclick="questionTypeHandler(${id}, ${bot[i]})" value="${bot[i]}"
-                    />
-                </div>`
+        let input = document.createElement('input');
+
+        input.style = `background-color: #882200; color: white; text-align: center;
+                       font-size: 14px; border: none; 
+                       border-bottom: 1px solid !important; border-radius: 0px; 
+                       cursor: pointer; width: 240px;`;
+
+        input.setAttribute('readonly', true);
+        input.value = bot[i];
+        input.addEventListener('click', function(){
+            vaTypeHandler(id,bot[i]);
+        });
+        let container = document.createElement('div');
+        container.appendChild(input);
+        innerDiv.appendChild(container);
     }
-    div += '</div>'
-    
-    questionOption.innerHTML = div;
+    outerDiv.appendChild(innerDiv);   
+    questionOption.appendChild(outerDiv);
 }
 
 
@@ -268,30 +280,30 @@ const removeQuestionHandler = (id) => {
 
     let removeArray = [];
     let removeFromFlowBot = [];
-    let currentNode = nodeArray.filter(res => res.id === id);
+    let currentNode = nodeArray.filter(res => res.id === id)[0];
     //remove from flowbot
-    if(currentNode[0].type === 'Condition'){
-        if(currentNode[0].nextNodeId !== null){
-            removeFromFlowBot.push(currentNode[0].nextNodeId);
+    if(currentNode.type === 'Condition'){
+        if(currentNode.nextNodeId !== null){
+            removeFromFlowBot.push(currentNode.nextNodeId);
         }
 
-        let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
-        let parentResponses = parent[0].questionNode.responses;
+        let parent = nodeArray.filter(res => res.id === currentNode.pid)[0];
+        let parentResponses = parent.questionNode.responses;
 
         for(let i = 0; i < parentResponses.length; i++) {
-            if(parentResponses[i].name === currentNode[0].name){
+            if(parentResponses[i].name === currentNode.name){
                 parentResponses.splice(i,1);
             }
         }
-    } else if(currentNode[0].type === 'Question') {
-        removeFromFlowBot.push(currentNode[0].questionNode.questionId);
-        let parent = nodeArray.filter(res => res.id === currentNode[0].pid);
-        if(parent[0].type === 'Question'){
-            parent[0].questionNode.nextNodeId = null;
-        } else if(parent[0].type === 'Condition'){
-            let parentOfParent = nodeArray.filter(res => res.id === parent[0].pid);
-            let responses = parentOfParent[0].questionNode.responses.filter(res => res.name === parent[0].name);
-            responses[0].nextNodeId = null;
+    } else if(currentNode.type === 'Question') {
+        removeFromFlowBot.push(currentNode.questionNode.questionId);
+        let parent = nodeArray.filter(res => res.id === currentNode.pid)[0];
+        if(parent.type === 'Question'){
+            parent.questionNode.nextNodeId = null;
+        } else if(parent.type === 'Condition'){
+            let parentOfParent = nodeArray.filter(res => res.id === parent.pid)[0];
+            let responses = parentOfParent.questionNode.responses.filter(res => res.name === parent.name)[0];
+            responses.nextNodeId = null;
         }
     }
 
@@ -346,6 +358,80 @@ const deleteChildFromQuestionOptionDiv = () => {
 }
 
 
+//handling dragging link
+const sLinkHandler = (fromnodeId, tonodeId) => {
+
+    let count = 0, endCount = 0, botCount = 0;
+    let arr = [], botArr = [];
+
+    let fromnode = nodeArray.filter(res => res.id === fromnodeId)[0];
+    let tonode = nodeArray.filter(res => res.id === tonodeId)[0];
+    let tonodeQuestionId = tonode.questionNode.questionId;
+
+    if(fromnode.type === 'Question'){
+        if(tonode.name === 'End Session'){
+            fromnode.questionNode.chatEnded = true;
+        } else if(tonode.type === 'virtual assistant'){
+            fromnode.questionNode.nextBot = tonode.name;
+        }
+        if(fromnode.questionNode.nextNodeId !== tonodeQuestionId){
+            fromnode.questionNode.slink = tonodeQuestionId;
+        }
+    }
+
+    if(fromnode.type === 'Condition'){
+        let parentOfFromnode = nodeArray.filter(res => res.id === fromnode.pid)[0];
+        let responseOfFromnodeParent = parentOfFromnode.questionNode.responses;
+        let currentResponseNode = responseOfFromnodeParent.filter(res => res.name === fromnode.name)[0];
+        
+        if(currentResponseNode.nextNodeId !== tonodeQuestionId){
+            currentResponseNode.slink = tonodeQuestionId;
+        }
+        if(tonode.name === 'End Session'){
+            currentResponseNode.chatEnded = true;
+        } else if(tonode.type === 'virtual assistant'){
+            currentResponseNode.nextBot = tonode.name;
+        }
+        for(let i = 0; i < responseOfFromnodeParent.length; i++) {
+            if(responseOfFromnodeParent[i].chatEnded === true){
+                endCount++;
+            }
+            if(responseOfFromnodeParent[i].nextBot !== null){
+                if(botArr.indexOf(responseOfFromnodeParent[i].nextBot) === -1) {
+                    botArr.push(responseOfFromnodeParent[i].nextBot);
+                }
+                botCount++;
+            }
+            if(responseOfFromnodeParent[i].nextNodeId !== null){
+                if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
+                    arr.push(responseOfFromnodeParent[i].nextNodeId);
+                }
+                count++;
+            } else if(responseOfFromnodeParent[i].slink !== null){
+                if(arr.indexOf(responseOfFromnodeParent[i].slink) === -1) {
+                    arr.push(responseOfFromnodeParent[i].slink);
+                }
+                count++;
+            }
+        }
+
+        if(endCount === responseOfFromnodeParent.length){
+            parentOfFromnode.questionNode.chatEnded = true;
+        }
+
+        if(botCount === responseOfFromnodeParent.length && botArr.length === 1){
+            parentOfFromnode.questionNode.nextBot = tonode.name;
+        }
+        
+        if(count === responseOfFromnodeParent.length && arr.length === 1){
+            parentOfFromnode.questionNode.nextNodeId = tonodeQuestionId;
+        }
+    }
+    
+    console.log(JSON.stringify(flowBot));
+}
+
+
 //call every time when needs chart redraw 
 var nodeElements = null;
 OrgChart.events.on('redraw', function(sender) {
@@ -354,45 +440,12 @@ OrgChart.events.on('redraw', function(sender) {
     deleteChildFromQuestionOptionDiv();
 
     for (var i = 0; i < nodeElements.length; i++) {
-        let t = nodeElements[0].ownerSVGElement;
+        //let t = nodeElements[0].ownerSVGElement;
         nodeElements[i].sender = sender;
         
         nodeElements[i].addEventListener('mousedown', mousedownHandler);
     }
 });
-
-
-//handling dragging link
-const sLinkHandler = (fromnodeId, tonodeId) => {
-    let count = 0;
-    let arr = [];
-    let fromnode = nodeArray.filter(res => res.id === fromnodeId);
-    let parentOfFromnode = nodeArray.filter(res => res.id === fromnode[0].pid);
-    let responseOfFromnodeParent = parentOfFromnode[0].questionNode.responses;
-    let currentResponseNode = responseOfFromnodeParent.filter(res => res.name === fromnode[0].name);
-    let tonode = nodeArray.filter(res => res.id === tonodeId);
-    let tonodeQuestionId = tonode[0].questionNode.questionId;
-    currentResponseNode[0].slink = tonodeQuestionId;
-    
-    for(let i = 0; i < responseOfFromnodeParent.length; i++) {
-        if(responseOfFromnodeParent[i].nextNodeId !== null){
-            if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
-                arr.push(responseOfFromnodeParent[i].nextNodeId);
-            }
-            count++;
-        } else if(responseOfFromnodeParent[i].slink !== null){
-            if(arr.indexOf(responseOfFromnodeParent[i].slink) === -1) {
-                arr.push(responseOfFromnodeParent[i].slink);
-            }
-            count++;
-        }
-    }
-    if(count === responseOfFromnodeParent.length && arr.length === 1){
-        console.log('truely relational');
-        parentOfFromnode[0].questionNode.nextNodeId = tonodeQuestionId;
-        console.log(JSON.stringify(flowBot));
-    }
-}
 
 // For nodeType option x,y coordinate
 //position setup on the svg
@@ -454,10 +507,7 @@ function mousedownHandler(e) {
     var leaveHandler = function() {
         if (tonode && (tonode.id != fromnode.id)) {
             sender.addSlink(fromnode.id, tonode.id).draw();
-            console.log(fromnode.id, tonode.id);
             sLinkHandler(fromnode.id, tonode.id);
-            flowBot.slink.push({from: fromnode.id, to: tonode.id});
-            console.log(flowBot);
         }
         removeLine();
 
