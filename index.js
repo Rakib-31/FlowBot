@@ -2,9 +2,10 @@
 //are getting this parentId as their
 // parent node id
 var parentId = null;
-var flowBot = {tenant: 'ema',nodes: [], slink: []};
+var flowBot = {nodes: [], slink: []};
 var nodeArray = [{ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
 var questionArray = null;
+var slinks = [];
 
 //fetching data from the server and set it to the questionArray
 axios.get( './data.json' ).then( data =>{ 
@@ -180,13 +181,18 @@ function questionHandler(questionObject) {
     //this should be same for specific node and its corresponding element in flowbot
     //so that when one chande its nature another can be change automatically
     questionNodeObject = {
+        tenant: questionObject.tenant,
+        VA_Name: questionObject.botName,
+        VA_Id: 100,
         questionId: questionObject.questionId,
-        NodeType: 'Question',
+        questionType: questionObject.typeName,
         question: questionObject.text,
+        NodeType: 'Question',
         nextNodeId: null,
         nextBot: null,
         chatEnded: false,
         slink: null,
+        responseType: questionObject.responseType,
         responses: null
     }
 
@@ -507,6 +513,13 @@ function mousedownHandler(e) {
     var leaveHandler = function() {
         if (tonode && (tonode.id != fromnode.id)) {
             sender.addSlink(fromnode.id, tonode.id).draw();
+            // let from = slinks.filter(res => res.from === fromnode.id);
+            // console.log(from);
+            // if(from){
+            //     from[0].to = tonode.id;
+            // } else{
+            //     slinks.push({from: fromnode.id, to: tonode.id});
+            // }
             sLinkHandler(fromnode.id, tonode.id);
         }
         removeLine();
@@ -720,6 +733,7 @@ OrgChart.templates.isla.nodeMenuButton = '<g style="cursor:pointer;" control-nod
 var chart = new OrgChart(document.getElementById("tree"), {
     mouseScrool: OrgChart.action.scroll,
     template: "ula",
+    slink: slinks,
     tags: {
         Start: {
             template: "mery",
