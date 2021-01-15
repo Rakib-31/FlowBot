@@ -1,0 +1,154 @@
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body{
+    
+    background-color:rgba(0,0,0,0.05);
+    font: 16px Arial;
+}
+
+.chat-btn{
+    position: fixed;
+    right: 50px;
+    bottom: 50px;
+    background: dodgerblue;
+    color: white;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+    box-shadow: 0 5px 5px rgba(0,0,0,0.4);
+}
+.chat-btn:hover, .submit:hover{
+    opacity: 1;
+}
+
+.chat-popup{
+    position: fixed;
+    bottom:80px;
+    right:120px;
+    height: 430px;
+    width: 300px;
+    background-color: white;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+
+.show{
+    display: flex;
+}
+
+.chat-area{
+    height: 80%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.income-msg{
+    display: flex;
+    align-items: center;
+}
+
+.income-msg .msg{
+    background-color: red;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 5px;
+    margin-left: 1rem;
+    margin-right: 4rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+.input-area{
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+input[type="text"]{
+    width: 100%;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    border-radius: 5px;
+    height: 2.2rem;
+}
+
+input::-webkit-input-placeholder {
+    font-size: 12px;
+    line-height: 3;
+    text-align: center;
+}
+
+.submit{
+    padding: 0.25rem 0.5rem;
+    margin-left: 0.5rem;
+    background-color: green;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+    opacity: 0.7;
+}
+
+.out-msg{
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.design{
+    margin: 0.75rem;
+    margin-left: 4rem;
+    padding: 0.5rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    word-break: break-all;
+}
+
+.my-msg{
+    justify-content: flex-end;
+    background-color: green;
+}
+
+.btn-msg{
+    background-color: rgb(31, 102, 168);
+    justify-content: flex-start;
+}
+
+.chat-end-control{
+    background-color:rgb(46, 196, 46);
+    justify-content: flex-start;
+}
+
+.bot-control{
+    background-color:rgb(238, 17, 17);
+    justify-content: flex-start;
+}
+
+.avatar{
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+@media (max-width:500px){
+    .chat-popup{
+        bottom: 120px;
+        right: 10%;
+        width: 80vw;
+    }
+}
