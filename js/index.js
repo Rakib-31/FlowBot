@@ -308,15 +308,76 @@ const vA_Handler = (id) => {
 }
 
 
-const nullAllParentsNextId = (questionId) => {
+const nullAllParentsNextNodeId = (questionId) => {
 
 }
 
 
 const removeSlink = (id) => {
     for(let i = 0; i < slink.length; i++){
-        if(slink[i].from == id || slink[i].to == id){
+        if(slink[i].from == id){
             slink.splice(i,1);
+        } else if(slink[i].to == id){
+            let parent = getNode(slink[i].from);
+            if(parent.type === 'Question'){
+                parent.questionNode.nextNodeId = null;
+            } else if(parent.type==='Condition'){
+                let parentOfParent = getNode(parent.pid);
+                let response = getResponseNode(parentOfParent, parent);
+                
+                if(parentOfParent.questionNode.nextNodeId == response.nextNodeId){
+                    parentOfParent.questionNode.nextNodeId = null;
+                }
+                response.nextNodeId = null;
+            }
+            slink.splice(i,1);
+            i--;
+        }
+    }
+}
+
+const removeDataFromFlowbot = (removeFromFlowBot) => {
+    while(removeFromFlowBot.length){
+
+        let temp = removeFromFlowBot[0];
+        let index = null;
+
+        for (let i = 0; i < flowBot.nodes.length; i++){      
+            if(flowBot.nodes[i].questionId === temp){
+                index = i;
+                if(flowBot.nodes[i].nextNodeId !== null){
+                    removeFromFlowBot.push(flowBot.nodes[i].nextNodeId);
+                } else {
+                    let currentNodeResponses = flowBot.nodes[i].responses;
+                    for(let j = 0; j < currentNodeResponses.length; j++) {
+                        if(currentNodeResponses[j].nextNodeId !== null) {
+                            removeFromFlowBot.push(currentNodeResponses[j].nextNodeId);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        if(index !== null) {
+            flowBot.nodes.splice(index,1)[0];
+        }
+        removeFromFlowBot.splice(0,1);
+    }
+}
+
+const removeDataFromNodeArray = (removeArray) => {
+    while (removeArray.length){
+        id = removeArray[0];
+        removeArray.splice(0,1);
+
+        for (let i = 0; i < nodeArray.length; i++){      
+            if (nodeArray[i].id === id){
+                removeSlink(id);
+                nodeArray.splice(i,1);
+                i--;          
+            } else if (nodeArray[i].pid === id) {
+                removeArray.push(nodeArray[i].id);
+            }
         }
     }
 }
@@ -351,50 +412,10 @@ const removeQuestionHandler = (id) => {
         }
     }
 
-    while(removeFromFlowBot.length){
-
-        let temp = removeFromFlowBot[0];
-        let index = null;
-
-        for (let i = 0; i < flowBot.nodes.length; i++){      
-            if(flowBot.nodes[i].questionId === temp){
-                index = i;
-                if(flowBot.nodes[i].nextNodeId !== null){
-                    removeFromFlowBot.push(flowBot.nodes[i].nextNodeId);
-                } else {
-                    let currentNodeResponses = flowBot.nodes[i].responses;
-                    for(let j = 0; j < currentNodeResponses.length; j++) {
-                        if(currentNodeResponses[j].nextNodeId !== null) {
-                            removeFromFlowBot.push(currentNodeResponses[j].nextNodeId);
-                        }
-                    }
-                }
-                break;
-            }
-        }
-        if(index !== null) {
-            flowBot.nodes.splice(index,1)[0];
-        }
-        removeFromFlowBot.splice(0,1);
-    }
-
+    removeDataFromFlowbot(removeFromFlowBot);
     removeArray.push(id);
+    removeDataFromNodeArray(removeArray);
 
-    while (removeArray.length){
-        id = removeArray[0];
-        removeArray.splice(0,1);
-
-        for (let i = 0; i < nodeArray.length; i++){      
-            if (nodeArray[i].id === id){
-                removeSlink(id);
-                nodeArray.splice(i,1);
-                i--;          
-            } else if (nodeArray[i].pid === id) {
-                removeArray.push(nodeArray[i].id);
-            }
-        }
-    }
-    console.log(JSON.stringify(nodeArray));
     console.log(JSON.stringify(flowBot));
     chart.draw();
 }
@@ -426,7 +447,7 @@ const checkAllResponsesCondition = (responseOfFromnodeParent) => {
         }
     }
     return {
-        count, endCount, botCount
+        count, endCount, botCount, arr, botArr
     }
 }
 
@@ -458,7 +479,7 @@ const sLinkHandler = (fromnodeId, tonodeId) => {
             currentResponseNode.nextBot = tonode.name;
         }
         
-        const {count, endCount, botCount} = checkAllResponsesCondition(responseOfFromnodeParent);
+        const {count, endCount, botCount, arr, botArr} = checkAllResponsesCondition(responseOfFromnodeParent);
 
         if(count === responseOfFromnodeParent.length && arr.length === 1){
             parentOfFromnode.questionNode.nextNodeId = tonodeQuestionId;
@@ -497,7 +518,7 @@ const checkAllNodesThenSave = () => {
         }  
     }
 
-    return openPopupAfterSave();
+    return saveDataOrOpenDecisionMissingAlert();
 }
 
 const saveBtn = document.getElementById('save-btn');
@@ -512,7 +533,7 @@ document.getElementById('popup-btn').addEventListener('click', () => {
     showPopup.style.display = 'none';
 });
 
-const openPopupAfterSave = () => {
+const saveDataOrOpenDecisionMissingAlert = () => {
     popupMenu.innerHTML = '';
 
     if(mustFillCondition.length){       
