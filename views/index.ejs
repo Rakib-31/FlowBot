@@ -21,10 +21,15 @@
 
   <body>
     
-    <div style="position: relative;">
+    <div style="position: relative; width: 100%">
       <div style="z-index: 100; position: absolute; width: 100%"><%- include('navbar.html')%></div>
+      
+      <div id="select-va" class="select-va">
+        <h3>Select a virtual assistant</h3>
+      </div>
       <div id="tree"></div>
-      <button id="save-btn" style="position: absolute; top: 10%; right: 20px;" class="btn btn-success">Save</button>
+      <div style="position: fixed; top: 15%; left: 20px;" id="current-bot"></div>
+      <button id="save-btn" style="position: fixed; top: 15%; right: 20px;" class="btn btn-success">Save</button>
       <div style="position: absolute; top: 0" id="question-option"></div>
       <div id="remove-popup" class="remove-popup">
         <h4>Delete current child first</h4>
@@ -37,6 +42,9 @@
       <div id="success-msg" class="success-msg">
         <h4>Successfully saved....</h4>
       </div>
+
+      
+
       <div id="myModal" class="modal">
 
         <!-- Modal content -->
@@ -55,6 +63,7 @@
         </div>
       </div>
     </div> 
+    <script src="navbar.js"></script>
     <script src="index.js"></script>
   </body>
 </html>

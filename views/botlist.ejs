@@ -4,44 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <link rel="stylesheet" href="botlist.css">
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="navbar.css">
+    <link rel="stylesheet" href="botlist.css">
+    
 </head>
 <body>
     <%- include('navbar.html')%>
     <div class="table-center">
-        <table>
+        <table id="table">
             <tr>
               <th>VA name</th>
               <th>VA ID</th>
               <th>Chat</th>
               <th>View</th>
             </tr>
-            <tr>
-              <td>Peter</td>
-              <td>Griffin</td>
-              <td>$100</td>
-              <td>view</td>
-            </tr>
-            <tr>
-              <td>Lois</td>
-              <td>Griffin</td>
-              <td>$150</td>
-              <td>view</td>
-            </tr>
-            <tr>
-              <td>Joe</td>
-              <td>Swanson</td>
-              <td>$300</td>
-              <td>view</td>
-            </tr>
-            <tr>
-              <td>Cleveland</td>
-              <td>Brown</td>
-              <td>$250</td>
-              <td>view</td>
-            </tr>
+            
         </table>
     </div>
+
+    <script src="botlist.js"></script>
 </body>
 </html>

@@ -3,12 +3,21 @@ const chatBtn = document.querySelector('.chat-btn');
 const submitBtn = document.querySelector('.submit');
 const chatArea = document.querySelector('.chat-area');
 const inputElm = document.getElementById('input-field');
-const botAvatarUrl = 'https://i.pinimg.com/originals/f0/48/9c/f0489ceb101a4bb4f8fd6f6f2c9e2762.jpg';
-const userAvatarUrl = 'https://i.pinimg.com/originals/f0/48/9c/f0489ceb101a4bb4f8fd6f6f2c9e2762.jpg';
-
+const botAvatarUrl = 'avatar.jpg';
+const userAvatarUrl = 'avatar.jpg';
+console.log(location.href);
 var nodes = null;
-axios.get('http://localhost:5000/chatbot/data').then(data => {
-    nodes = data.data[0].nodes;
+var query = localStorage.getItem('query');
+var url = 'http://localhost:5000/chatbot/data';
+if(query){
+    url = 'http://localhost:5000/chatbot/data/' + query;
+    popup.classList.add('show');
+}
+console.log(JSON.stringify(query));
+axios.get(url).then(data => {
+    console.log(data);
+    nodes = JSON.parse(data.data.data[0].nodes);
+    console.log(nodes);
     pushQuestion(nodes[0]);
 });
 

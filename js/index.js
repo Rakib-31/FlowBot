@@ -1,35 +1,34 @@
-//each response nodes of a question
-//are getting this parentId as their
-// parent node id
-//const env = process.env;
-
+localStorage.setItem('query', '');
 var parentId = null;
-var flowBot = {tenant:"emma", VA_Name:"MSK_BOT", VA_Id:100, nodes: []};
+var slink = [];
 var nodeArray = [{ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
+var flowBot = {tenant:"emma", VA_Name:"", VA_Id:100, nodes: [], shape: nodeArray, slink};
 var questionArray = null;
+var saveUrl = 'http://localhost:5000/post';
 
-//fetching data from the server and set it to the questionArray
 axios.get( './data.json' ).then( data =>{ 
     questionArray = data.data.data;
 });
 
+console.log(flowBot);
 
-var searchBar = document.getElementById('search-bar'); // select search bar from the dom
-var modal = document.getElementById("myModal");        // select modal from dom
+
+var searchBar = document.getElementById('search-bar');
+var modal = document.getElementById("myModal");
 let questionOption = document.getElementById('question-option');
 
 
-var span = document.getElementsByClassName("close")[0];  //select cross button from modal
-span.onclick = function() {                             //click cross button to close the modal
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
     modal.style.display = "none";
 }
 
 
-function autocomplete(inp, dataArray) {                // auto complete input field section from line 27 to 101
+function autocomplete(inp, dataArray) {
     var currentFocus;
     inp.addEventListener("input", function(e) {
         var val = this.value;
-        closeAllLists();                              //close any already open lists of autocompleted values
+        closeAllLists();
         if (!val) { return false; }
         currentFocus = -1;
         itemContainerDiv = document.createElement("div");
@@ -52,14 +51,14 @@ function autocomplete(inp, dataArray) {                // auto complete input fi
     });
 
     
-    inp.addEventListener("keydown", function(e) {                          //execute a function presses a key on the keyboard
+    inp.addEventListener("keydown", function(e) {
         var x = document.getElementById(this.id + "autocomplete-list");
         if (x) x = x.getElementsByTagName("div");
         if (e.keyCode == 40) {      
-            currentFocus++;                                                //If the arrow DOWN key is pressed increase the currentFocus variable:
-            addActive(x);                                                  //and and make the current item more visible
+            currentFocus++;
+            addActive(x);
         } else if (e.keyCode == 38) {   
-            currentFocus--;                                                //If the arrow UP key is pressed decrease the currentFocus variable
+            currentFocus--;
             addActive(x);
         } else if (e.keyCode == 13) {
             e.preventDefault();
@@ -72,20 +71,18 @@ function autocomplete(inp, dataArray) {                // auto complete input fi
 
     function addActive(x) {
         if (!x) return false;
-        removeActive(x);                                                  //start by removing the "active" class on all items
+        removeActive(x);
         if (currentFocus >= x.length) currentFocus = 0;
         if (currentFocus < 0) currentFocus = (x.length - 1);
-        x[currentFocus].classList.add("autocomplete-active");             //active the selected item div
+        x[currentFocus].classList.add("autocomplete-active");
     }
 
-    //function for removing item from the active list on autocomplete
     function removeActive(x) {
         for (var i = 0; i < x.length; i++) {
             x[i].classList.remove("autocomplete-active");
         }
     }
 
-    //close all list of item in the item container div
     function closeAllLists(elmnt) {
         var x = document.getElementsByClassName("autocomplete-items");
         for (var i = 0; i < x.length; i++) {
@@ -94,14 +91,13 @@ function autocomplete(inp, dataArray) {                // auto complete input fi
             }
         }
     }
-    //execute a function when someone clicks in the document
+
     document.addEventListener("click", function(e) {
         closeAllLists(e.target);
     });
 }
 
 
-// end node controller
 const endSessionHandler = (id) => {
     let endNode = getNode(id);
 
@@ -142,12 +138,11 @@ const openRemoveCurrentNextNodePopup = () => {
 }
 
 
-// response handling after select a question
 var questionNodeObject = null;
 
 function questionHandler(questionObject) { 
 
-    let newNode = {                    //should be pushed in selected node in nodearray and flowbot also.
+    let newNode = {
         id: nodeArray.length + 1,
         pid: parentId,
         tags: ['Question'],
@@ -180,10 +175,10 @@ function questionHandler(questionObject) {
         node.questionNode.nextNodeId = questionObject.questionId;
     }
     
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder}); //sort for the purpose of view order
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
 
     var responseArray = [];
-    // pushing all response node into question tree if any response node is there
+
     for(let i = 0; i < questionObject.responses.length; i++){
         nodeArray.push({
             id: nodeArray.length + 1,
@@ -195,19 +190,16 @@ function questionHandler(questionObject) {
             nextNodeId: null,
             complete: false
         });
-        responseArray.push({                         //flowbot node's responses
+        responseArray.push({
             nodeType: 'Condition',
             responseId: responseArray.length,
             name: questionObject.responses[i].name,
             nextNodeId: null,
             nextBot: null,
             chatEnded: false
-            //slink: null
         });
     }
 
-    //this should be same for specific node and its corresponding element in flowbot
-    //so that when one chande its nature another can be change automatically
     questionNodeObject = {
         questionId: questionObject.questionId,
         questionType: questionObject.typeName,
@@ -216,7 +208,6 @@ function questionHandler(questionObject) {
         nextNodeId: null,
         nextBot: null,
         chatEnded: false,
-        //slink: null,
         responseType: questionObject.responseType,
         responses: []
     }
@@ -226,34 +217,21 @@ function questionHandler(questionObject) {
     }
 
     newNode.questionNode = questionNodeObject;
-
-    //nodeArray.push(newNode);
-
     flowBot.nodes.push(newNode.questionNode);
     node.complete = true;
   
     console.log(JSON.stringify(nodeArray));
     console.log(JSON.stringify(flowBot));
-    modal.style.display = 'none';        //close modal
+    modal.style.display = 'none';
     chart.draw();
 }
 
 
-//when asking question there will open a modal
-//input box should be clean
-//current node id will be set to the parentId
 const askQuestionHandler = (id) => {
     let node = getNode(id);
-    
-    if(node.type === 'Condition'){
-        if(node.nextNodeId !== null){
-            openRemoveCurrentNextNodePopup();
-            return;
-        }
-    }
-
-    if(node.type === 'Question'){
-        if(node.questionNode.nextNodeId !== null){
+    if(node.id !== 1){
+        let isNextNodeId = (node.type === 'Condition') ? node.nextNodeId : node.questionNode.nextNodeId;
+        if(isNextNodeId) {
             openRemoveCurrentNextNodePopup();
             return;
         }
@@ -265,14 +243,8 @@ const askQuestionHandler = (id) => {
 }
 
 const vaTypeHandler = (pId, virtualAssistant) => { 
-    nodeArray.push({
-        id: nodeArray.length+1, 
-        pid: pId, name: virtualAssistant, 
-        type: 'virtual assistant', 
-        questionNode: {questionId: null}
-    });
     let parent = getNode(pId);
-
+    
     if(parent.type === 'Condition'){
         let parentOfParent = getNode(parent.pid);
         let response = getResponseNode(parentOfParent, parent);
@@ -281,27 +253,34 @@ const vaTypeHandler = (pId, virtualAssistant) => {
         parent.questionNode.nextBot = virtualAssistant;
     }
     parent.complete = true;
-    chart.draw();
-    console.log(JSON.stringify(flowBot));
+
+    if(checkAllNodesThenSave()){
+        clearAllNodesAndStartNewVA(virtualAssistant);
+    }  
 }
 
+const clearAllNodesAndStartNewVA = (virtualAssistant) => {
+    nodeArray.splice(0,nodeArray.length);
+    nodeArray.push({ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null });
+    flowBot = {tenant:"emma", VA_Name: virtualAssistant, VA_Id:100, nodes: []};
+    currentBotName.innerHTML = virtualAssistant;
+    chart.draw();
+}
+
+var bot = [ 'Fisycal Score Victory Assessment',  'Pain Recorder Virtual Assessment',
+            'Appointment Virtual Assessment', 'Lead Generator', 'Symptom',
+            'Precall Test Virtual Assessment', 'Intake'
+          ];
 
 const vA_Handler = (id) => {
-    // out of box on x axis
     if(offsetX + 240 > screen.width){
         offsetX -= 200;
     }
-    // out of box on y axis
     if(offsetY + 300 > screen.height){
         offsetY -= 240;
     }
     questionOption.style.left = offsetX + 'px';
     questionOption.style.top = offsetY + 'px';
-
-    let bot = ['Fisycal Score Victory Assessment',  'Pain Recorder Virtual Assessment',
-                'Appointment Virtual Assessment', 'Lead Generator', 'Symptom',
-                'Precall Test Virtual Assessment', 'Intake'
-              ];
 
     let outerDiv = document.createElement('div');
     outerDiv.style = "overflow-y: scroll; height: 200px;";
@@ -333,15 +312,22 @@ const nullAllParentsNextId = (questionId) => {
 
 }
 
-//making a queue of subtree for delete
-//it is like push and pop a queue concept
+
+const removeSlink = (id) => {
+    for(let i = 0; i < slink.length; i++){
+        if(slink[i].from == id || slink[i].to == id){
+            slink.splice(i,1);
+        }
+    }
+}
+
 const removeQuestionHandler = (id) => {
 
     let removeArray = [];
     let removeFromFlowBot = [];
     let currentNode = getNode(id);
     let parent = getNode(currentNode.pid);
-    //remove from flowbot
+
     if(currentNode.type === 'Condition'){
         if(currentNode.nextNodeId !== null){
             removeFromFlowBot.push(currentNode.nextNodeId);
@@ -388,24 +374,19 @@ const removeQuestionHandler = (id) => {
         }
         if(index !== null) {
             flowBot.nodes.splice(index,1)[0];
-            //flowBot.nodes[index].questionId = null;
-            //let deletedNode = flowBot.nodes.splice(index,1)[0];
-            //console.log(deletedNode);
-            //nullAllParentsNextId(deletedNode.questionId);
         }
         removeFromFlowBot.splice(0,1);
     }
 
-    //remove from nodearray
     removeArray.push(id);
-    
-    // remove the subtree which root id is id in the tree
+
     while (removeArray.length){
         id = removeArray[0];
         removeArray.splice(0,1);
-        // remove the current node and push all child of this current node in the removeArray
+
         for (let i = 0; i < nodeArray.length; i++){      
             if (nodeArray[i].id === id){
+                removeSlink(id);
                 nodeArray.splice(i,1);
                 i--;          
             } else if (nodeArray[i].pid === id) {
@@ -423,16 +404,38 @@ const deleteChildFromQuestionOptionDiv = () => {
 }
 
 
-//handling dragging link
-const sLinkHandler = (fromnodeId, tonodeId) => {
-
+const checkAllResponsesCondition = (responseOfFromnodeParent) => {
     let count = 0, endCount = 0, botCount = 0;
     let arr = [], botArr = [];
+
+    for(let i = 0; i < responseOfFromnodeParent.length; i++) {
+        if(responseOfFromnodeParent[i].chatEnded === true){
+            endCount++;
+        }
+        if(responseOfFromnodeParent[i].nextBot !== null){
+            if(botArr.indexOf(responseOfFromnodeParent[i].nextBot) === -1) {
+                botArr.push(responseOfFromnodeParent[i].nextBot);
+            }
+            botCount++;
+        }
+        if(responseOfFromnodeParent[i].nextNodeId !== null){
+            if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
+                arr.push(responseOfFromnodeParent[i].nextNodeId);
+            }
+            count++;
+        }
+    }
+    return {
+        count, endCount, botCount
+    }
+}
+
+
+const sLinkHandler = (fromnodeId, tonodeId) => {
+    console.log(fromnodeId , tonodeId);
     let fromnode = getNode(fromnodeId);
     let tonode = getNode(tonodeId);
-    console.log(tonode);
     let tonodeQuestionId = tonode.questionNode.questionId;
-    console.log(tonodeQuestionId);
 
     if(fromnode.type === 'Question'){
         if(tonode.name === 'End Session'){
@@ -448,31 +451,14 @@ const sLinkHandler = (fromnodeId, tonodeId) => {
         let responseOfFromnodeParent = parentOfFromnode.questionNode.responses;
         let currentResponseNode = getResponseNode(parentOfFromnode, fromnode);
         currentResponseNode.nextNodeId = tonodeQuestionId;
-        console.log(currentResponseNode);
 
         if(tonode.name === 'End Session'){
             currentResponseNode.chatEnded = true;
         } else if(tonode.type === 'virtual assistant'){
-            console.log(currentResponseNode);
             currentResponseNode.nextBot = tonode.name;
         }
-        for(let i = 0; i < responseOfFromnodeParent.length; i++) {
-            if(responseOfFromnodeParent[i].chatEnded === true){
-                endCount++;
-            }
-            if(responseOfFromnodeParent[i].nextBot !== null){
-                if(botArr.indexOf(responseOfFromnodeParent[i].nextBot) === -1) {
-                    botArr.push(responseOfFromnodeParent[i].nextBot);
-                }
-                botCount++;
-            }
-            if(responseOfFromnodeParent[i].nextNodeId !== null){
-                if(arr.indexOf(responseOfFromnodeParent[i].nextNodeId) === -1) {
-                    arr.push(responseOfFromnodeParent[i].nextNodeId);
-                }
-                count++;
-            }
-        }
+        
+        const {count, endCount, botCount} = checkAllResponsesCondition(responseOfFromnodeParent);
 
         if(count === responseOfFromnodeParent.length && arr.length === 1){
             parentOfFromnode.questionNode.nextNodeId = tonodeQuestionId;
@@ -486,31 +472,37 @@ const sLinkHandler = (fromnodeId, tonodeId) => {
             parentOfFromnode.questionNode.nextBot = tonode.name;
         }   
     }
+    slink.push({from: fromnodeId, to: tonodeId});
     fromnode.complete = true;
     console.log(JSON.stringify(flowBot));
+    chart.draw();
 }
 
 
-var mustFeelCondition = [];
-const saveBtn = document.getElementById('save-btn');
-saveBtn.addEventListener('click', () => {
-    mustFeelCondition = [];
+var mustFillCondition = [];
+
+const checkAllNodesThenSave = () => {
+    mustFillCondition = [];
     for(let i = 0; i < nodeArray.length; i++){
         if(nodeArray[i].type === 'Question'){
             let responses = nodeArray[i].questionNode.responses;
             if(!responses.length && !nodeArray[i].complete){
-                mustFeelCondition.push(nodeArray[i].name);
+                mustFillCondition.push(nodeArray[i].name);
             }
         } else if(nodeArray[i].type === 'Condition' && !nodeArray[i].complete){
             let parent = getNode(nodeArray[i].pid);
             if(parent.questionNode.nextNodeId === null){
-                mustFeelCondition.push(nodeArray[i].name);
+                mustFillCondition.push(nodeArray[i].name);
             }  
         }  
     }
 
-    openPopupAfterSave();
-    console.log(mustFeelCondition);
+    return openPopupAfterSave();
+}
+
+const saveBtn = document.getElementById('save-btn');
+saveBtn.addEventListener('click', () => {
+    checkAllNodesThenSave();
 });
 
 const showPopup = document.getElementById('show-popup');
@@ -523,32 +515,32 @@ document.getElementById('popup-btn').addEventListener('click', () => {
 const openPopupAfterSave = () => {
     popupMenu.innerHTML = '';
 
-    if(mustFeelCondition.length){       
+    if(mustFillCondition.length){       
         let p = document.createElement('p');
         p.style = 'color: #000066; margin-top: 3rem;';
         let small = document.createElement('small');
         small.innerText = 'Please make decision on node ';
         let span = document.createElement('span');
         span.style.color = '#ff3333';
-        span.innerText = mustFeelCondition;
+        span.innerText = mustFillCondition;
         p.appendChild(small);
         p.appendChild(span);
         popupMenu.appendChild(p);
         showPopup.style.display = 'block';
-        return;
+        return false;
     }
-    axios.post('http://localhost:5000/post?VA_Name=' + flowBot.VA_Name, flowBot)
+
+    axios.post(saveUrl,flowBot)
     .then(response => {
-        console.log(response);
         successMsg.style.display = 'block';
         setTimeout(() => {
             successMsg.style.display = 'none';
         }, 2000);
-    }); 
+    });
+    return true;
 }
 
 
-//call every time when needs chart redraw 
 var nodeElements = null;
 OrgChart.events.on('redraw', function(sender) {
     nodeElements = sender.getSvg().querySelectorAll('[node-id]');
@@ -561,8 +553,6 @@ OrgChart.events.on('redraw', function(sender) {
     }
 });
 
-// For nodeType option x,y coordinate
-//position setup on the svg
 var offsetX;
 var offsetY;
 
@@ -618,7 +608,6 @@ function mousedownHandler(e) {
 
     var leaveHandler = function() {
         if (tonode && (tonode.id != fromnode.id)) {
-            sender.addSlink(fromnode.id, tonode.id).draw();
             sLinkHandler(fromnode.id, tonode.id);
         }
         removeLine();
@@ -827,7 +816,6 @@ OrgChart.templates.ana.nodeMenuButton = '<g style="cursor:pointer;" control-node
                                         +'<rect x="175" y="65"  fill="#A5AD03" style="width: 40px; height: 20px;" rx="10" ry="10" ></rect>'
                                         +'<text width="230" style="font-size: 25px; cursor: pointer;" fill="#ffffff" x="195" y="84" text-anchor="middle" class="field_0">+</text></g>';
 
-//customization in design of node field and menu button 
 OrgChart.templates.ula.node = '<rect stroke="#aeaeae" stroke-width="1px" x="15" y="0"  fill="#D89E3E" style="width: 220px; height: 100px;" ></rect>';
 OrgChart.templates.ula.field_0 = '<text width="230" style="font-size: 14px;" fill="#000000" x="125" y="40" text-anchor="middle" class="field_0">{val}</text>';
 OrgChart.templates.ula.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}">'
@@ -838,78 +826,130 @@ OrgChart.templates.isla.node = '<rect stroke="#aeaeae" stroke-width="1px" x="-20
 OrgChart.templates.isla.field_0 = '<text width="230" style="font-size: 20px;" fill="#ffffff" x="90" y="52" text-anchor="middle" class="field_0">{val}</text>';
 OrgChart.templates.isla.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}"></g>';
 
-//OrgChart implementation
-var chart = new OrgChart(document.getElementById("tree"), {
+
+//tree.style.display = 'none';
+const tree = document.getElementById("tree");
+let v_a = '';
+
+let selectVa = document.getElementById('select-va');
+for(item in bot){
+    let div = document.createElement('div');
+    let button = document.createElement('button');
+    button.classList.add('va-button');
+    button.innerHTML = bot[item];
+    button.addEventListener('click', (e) => {
+        setVirtualAssistant(button.innerHTML);
+    });
+    div.appendChild(button);
+    selectVa.appendChild(div);
+}
+
+var chart = null;
+var currentBotName = document.getElementById('current-bot');
+
+const setVirtualAssistant = (text) => {
+    selectVa.style.display = 'none';
+    console.log(text);
+    flowBot.VA_Name = text;
+    currentBotName.innerHTML = text;
+    console.log(flowBot);
+    tree.style.display = 'block';
     
-    template: "ula",
-    tags: {
-        Start: {
-            template: "mery",
-            nodeMenu: {
-                askQuestion: {
-                    icon: "",
-                    text: "Ask Question",
-                    onClick: askQuestionHandler
-                },
-        
-                goToAnotherVA: {
-                    icon: "",
-                    text: "Go to another V/A",
-                    onClick: vA_Handler
-                },
-        
-                endsession: {
-                    icon: "",
-                    text: "End Session",
-                    onClick: endSessionHandler
+    openOrgChart();
+
+    chart.on('click', (a, b) => {
+        deleteChildFromQuestionOptionDiv();
+        return false;
+    });
+}
+
+
+const openOrgChart = () => {
+    chart = new OrgChart( tree, {
+        enableSearch: false,
+        template: "ula",
+        tags: {
+            Start: {
+                template: "mery",
+                nodeMenu: {
+                    askQuestion: {
+                        icon: "",
+                        text: "Ask Question",
+                        onClick: askQuestionHandler
+                    },
+            
+                    goToAnotherVA: {
+                        icon: "",
+                        text: "Go to another V/A",
+                        onClick: vA_Handler
+                    },
+            
+                    endsession: {
+                        icon: "",
+                        text: "End Session",
+                        onClick: endSessionHandler
+                    }
                 }
+            },
+            Condition: {
+                template: "ana"
+            },
+            Question: {
+                template: "ula"
+            },
+            End: {
+                template: "isla"
             }
         },
-        Condition: {
-            template: "ana"
+    
+        nodeMenu: {
+            askQuestion: {
+                icon: "",
+                text: "Ask Question",
+                onClick: askQuestionHandler
+            },
+    
+            goToAnotherVA: {
+                icon: "",
+                text: "Go to another V/A",
+                onClick: vA_Handler
+            },
+    
+            remove: {
+                icon: "",
+                text: "Remove Question",
+                onClick: removeQuestionHandler
+            },
+    
+            endsession: {
+                icon: "",
+                text: "End Session",
+                onClick: endSessionHandler
+            }
         },
-        Question: {
-            template: "ula"
+        nodeBinding: {
+            field_0: "name"
         },
-        End: {
-            template: "isla"
-        }
-    },
+        slinks: slink,
+        nodes: nodes
+    });
+}
 
-    nodeMenu: {
-        askQuestion: {
-            icon: "",
-            text: "Ask Question",
-            onClick: askQuestionHandler
-        },
 
-        goToAnotherVA: {
-            icon: "",
-            text: "Go to another V/A",
-            onClick: vA_Handler
-        },
-
-        remove: {
-            icon: "",
-            text: "Remove Question",
-            onClick: removeQuestionHandler
-        },
-
-        endsession: {
-            icon: "",
-            text: "End Session",
-            onClick: endSessionHandler
-        }
-    },
-    nodeBinding: {
-        field_0: "name"
-    },
-
-    nodes: nodes
-});
-
-//nothing will happen on chart node click
-chart.on('click', (a, b) => {
-    deleteChildFromQuestionOptionDiv();
-    return false;
-});
+var shape = JSON.parse(localStorage.getItem('shape'));
+if(shape){
+    //saveUrl = 'http://localhost:5000/update/'+shape.id;
+    selectVa.style.display = 'none';
+    tree.style.display = 'block';
+    flowBot.VA_Name = shape.VA_Name;
+    flowBot.VA_Id = shape.VA_Id;
+    flowBot.tenant = shape.tenant;
+    flowBot.nodes = JSON.parse(shape.nodes);
+    nodeArray = JSON.parse(shape.shape);
+    slink = JSON.parse(shape.slink);
+    nodes = nodeArray;
+    console.log(nodeArray);
+    console.log(flowBot);
+    currentBotName.innerHTML = flowBot.VA_Name;
+    openOrgChart();
+}

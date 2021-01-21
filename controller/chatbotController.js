@@ -1,5 +1,5 @@
 const DataModel = require('../model/data');
-
+var db = require("../model/database");
 module.exports = {
 
     getPage(req, res){
@@ -7,28 +7,44 @@ module.exports = {
     },
 
     getData(req, res){
-        DataModel.find(req.query)
-        .exec(function(err, data) {
-            if (err){
-                console.log(err);
-                return res.status(400).json(err);
+        //console.log(req.query);
+        var sql = "select * from data_flow"
+        var params = [req.query.id];
+        db.all(sql, req.query, (err, row) => {
+            if (err) {
+                //console.log('error');
+            res.status(400).json({"error":err.message});
+            return;
             }
-            res.status(200).json(data);
-        }); 
+            res.status(200).json({
+                "message":"success",
+                "data":row
+            });
+            //console.log(row);
+            //console.log('success');
+        });
+    },
+
+    getSingelData(req, res){
+        console.log(req.params);
+        var sql = "select * from data_flow where VA_Name = ?"
+        var params = [req.params.VA_Name];
+        db.all(sql, params, (err, row) => {
+            if (err) {
+                console.log('error');
+            res.status(400).json({"error":err.message});
+            return;
+            }
+            res.status(200).json({
+                "message":"success",
+                "data":row
+            });
+            console.log(row);
+            console.log('success');
+        });
     },
 
     postData(req,res){
-        console.log(req.query);
-        console.log(req.body);
-        DataModel.findOneAndUpdate(req.query, req.body, { upsert: true }, (err) => {
-            if(err){
-                console.log(err);
-                res.send(err);
-            }
-            else{
-                console.log('success');
-                res.send({message: 'success'});
-            }
-        });
+
     },
 }
