@@ -1,7 +1,7 @@
 localStorage.setItem('query', '');
 var parentId = null;
 var slink = [];
-var nodeArray = [{ id: 1, tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
+var nodeArray = [{ id: 1, type: 'Start', tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
 var flowBot = {tenant:"emma", VA_Name:"", VA_Id:100, nodes: [], shape: nodeArray, slink};
 var questionArray = null;
 var saveUrl = 'http://localhost:5000/post';
@@ -176,11 +176,11 @@ function questionHandler(questionObject) {
     } else if(node.type === 'Condition') {
         parentOfCondition = getNode(node.pid);
         if(parentOfCondition.type === 'Question'){
-            parentOfCondition.questionNode.hasRules.push({id: node.id, nextNodeId: questionObject.questionId});
+            parentOfCondition.questionNode.hasRules.push({id: node.id, nextNodeId: questionObject.questionId, condition: null});
         } else if(parentOfCondition.type === 'Response'){
             let responseParent = getNode(parentOfCondition.pid);
             let response = getResponseNode(responseParent, parentOfCondition);
-            response.hasRules.push({id: node.id, nextNodeId: questionObject.questionId});
+            response.hasRules.push({id: node.id, nextNodeId: questionObject.questionId, condition: null});
         }
     }
     
@@ -254,7 +254,7 @@ const conditionHandler = (id) => {
     nodeArray.push({
         id: nodeArray.length+1,
         pid: id,
-        name: `Condition ${}`,
+        name: `Condition ${nodeArray.length+1}`,
         tags: ['Condition'],
         type: 'Condition',
         complete: false
@@ -415,53 +415,79 @@ const removeDataFromNodeArray = (removeArray) => {
     }
 }
 
-const removeWhenCondition = (currentNode, parent, response, removeFromFlowBot) => {
-    let rules = (parent.type === 'Question') ? parent.questionNode.hasRules: response.hasRules;
-    for(let i = 0; i < rules.length; i++){
-        if(rules[i].id === currentNode.id){
-            removeFromFlowBot.push(rules[i].nextNodeId);
-            rules.splice(i,1);
+const pushIntoRemoveArrayIfResponse = (currentNode, removeFromFlowBot, parent) => {
+    if(currentNode.nextNodeId !== null){
+        removeFromFlowBot.push(currentNode.nextNodeId);
+    }
+
+    let parentResponses = parent.questionNode.responses;
+
+    for(let i = 0; i < parentResponses.length; i++) {
+        if(parentResponses[i].name === currentNode.name){
+            parentResponses.splice(i,1);
         }
     }
-    return removeFromFlowBot;
+}
+
+const pushIntoRemoveArrayIfQuestion = (currentNode, removeFromFlowBot, parent) => {
+    removeFromFlowBot.push(currentNode.questionNode.questionId);
+    if(parent.type === 'Question'){
+        parent.questionNode.nextNodeId = null;   
+    } else if(parent.type === 'Response'){ 
+        let parentOfParent = getNode(parent.pid);
+        let response = getResponseNode(parentOfParent, parent);
+        response.nextNodeId = null;
+    } else if (parent.type === 'Start') {
+        removeFromFlowBot.push(currentNode.questionNode.questionId);
+    }else {
+        let rules = [];
+        let parentOfCondition = getNode(parent.pid);
+        if(parentOfCondition.type === 'Question'){
+            rules = parentOfCondition.questionNode.hasRules;
+        } else {
+            let grandParent = getNode(parentOfCondition.pid);
+            let response = getResponseNode(grandParent, parentOfCondition);
+            rules = response.hasRules;
+        }
+        removeRules(rules, parent, removeFromFlowBot);
+    }
+    parent.complete = false;
+}
+
+const pushIntoRemoveArrayIfCondition = (currentNode, removeFromFlowBot, parent) => {
+    let rules = [];
+    if(parent.type === 'Question'){
+        rules = parent.questionNode.hasRules;
+    } else {
+        let parentOfParent = getNode(parent.pid);
+        let response = getResponseNode(parentOfParent, parent);
+        rules = response.hasRules;
+    }
+    removeRules(rules, currentNode, removeFromFlowBot);
+}
+
+const removeRules = (rules, node, removeFromFlowBot) => {
+    for(let i = 0; i < rules.length; i++){
+        if(rules[i].id == node.id){
+            removeFromFlowBot.push(rules[i].nextNodeId);
+            rules.splice(i,1);
+            break;
+        }
+    }
 }
 
 const removeQuestionHandler = (id) => {
-
     let removeArray = [];
     let removeFromFlowBot = [];
     let currentNode = getNode(id);
     let parent = getNode(currentNode.pid);
-    let parentOfParent = getNode(parent.pid);
-    let response = getResponseNode(parentOfParent, parent);
 
     if(currentNode.type === 'Response'){
-        if(currentNode.nextNodeId !== null){
-            removeFromFlowBot.push(currentNode.nextNodeId);
-        }
-
-        let parentResponses = parent.questionNode.responses;
-
-        for(let i = 0; i < parentResponses.length; i++) {
-            if(parentResponses[i].name === currentNode.name){
-                parentResponses.splice(i,1);
-            }
-        }
+        pushIntoRemoveArrayIfResponse(currentNode, removeFromFlowBot, parent);
     } else if(currentNode.type === 'Question') {
-        removeFromFlowBot.push(currentNode.questionNode.questionId);
-        if(parent.type === 'Question'){
-            parent.questionNode.nextNodeId = null;   
-        } else if(parent.type === 'Response'){ 
-            response.nextNodeId = null;
-        } else {
-            let parentOfCondition = getNode(parent.pid);
-            let grandParent = getNode(parentOfCondition.pid);
-            let childResponse = getResponseNode(grandParent, parentOfCondition);
-            removeFromFlowBot = removeWhenCondition(currentNode, grandParent, childResponse, removeFromFlowBot);
-        }
-        parent.complete = false;
-    } else {  
-        removeFromFlowBot = removeWhenCondition(currentNode, parent, response, removeFromFlowBot);
+        pushIntoRemoveArrayIfQuestion(currentNode, removeFromFlowBot, parent);
+    } else {
+        pushIntoRemoveArrayIfCondition(currentNode, removeFromFlowBot, parent);  
     }
 
     removeDataFromFlowbot(removeFromFlowBot);
@@ -862,8 +888,10 @@ function findShortestDistanceBetweenPointerAndNode(fromNode, p) {
     };
 }
 
-//tree.style.display = 'none';
+
 const tree = document.getElementById("tree");
+tree.style.display = 'none';
+saveBtn.style.display = 'none';
 let v_a = '';
 
 let selectVa = document.getElementById('select-va');
@@ -883,13 +911,10 @@ var chart = null;
 var currentBotName = document.getElementById('current-bot');
 
 const setVirtualAssistant = (text) => {
-    selectVa.style.display = 'none';
     console.log(text);
     flowBot.VA_Name = text;
     currentBotName.innerHTML = text;
-    console.log(flowBot);
-    tree.style.display = 'block';
-    
+    console.log(flowBot);  
     openOrgChart();
 }
 
@@ -940,6 +965,9 @@ OrgChart.templates.isla.field_0 = '<text width="230" style="font-size: 20px;" fi
 OrgChart.templates.isla.nodeMenuButton = '<g style="cursor:pointer;" control-node-menu-id="{id}"></g>';
 
 const openOrgChart = () => {
+    saveBtn.style.display = 'block';
+    selectVa.style.display = 'none';
+    tree.style.display = 'block';
     chart = new OrgChart( tree, {
         enableSearch: false,
         template: "ula",
@@ -949,20 +977,8 @@ const openOrgChart = () => {
                 nodeMenu: {
                     askQuestion: {
                         icon: "",
-                        text: "Ask Question",
+                        text: "Add Question",
                         onClick: askQuestionHandler
-                    },
-            
-                    goToAnotherVA: {
-                        icon: "",
-                        text: "Go to another V/A",
-                        onClick: vA_Handler
-                    },
-            
-                    endsession: {
-                        icon: "",
-                        text: "End Session",
-                        onClick: endSessionHandler
                     }
                 }
             },
@@ -982,9 +998,14 @@ const openOrgChart = () => {
                     },
                     noCondition: {
                         icon: "",
-                        text: "No Condition",
+                        text: "Add Question",
                         onClick: askQuestionHandler
-                    }
+                    },
+                    remove: {
+                        icon: "",
+                        text: "Remove Question",
+                        onClick: removeQuestionHandler
+                    },
                 }
             },
             End: {
@@ -995,7 +1016,7 @@ const openOrgChart = () => {
         nodeMenu: {
             askQuestion: {
                 icon: "",
-                text: "Ask Question",
+                text: "Add Question",
                 onClick: askQuestionHandler
             },
 
@@ -1040,8 +1061,7 @@ const openOrgChart = () => {
 var shape = JSON.parse(localStorage.getItem('shape'));
 if(shape){
     //saveUrl = 'http://localhost:5000/update/'+shape.id;
-    selectVa.style.display = 'none';
-    tree.style.display = 'block';
+    
     flowBot.VA_Name = shape.VA_Name;
     flowBot.VA_Id = shape.VA_Id;
     flowBot.tenant = shape.tenant;
