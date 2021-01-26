@@ -1,7 +1,8 @@
 localStorage.setItem('query', '');
 var parentId = null;
 var slink = [];
-var nodeArray = [{ id: 1, type: 'Start', tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
+var nodeId = 1;
+var nodeArray = [{ id: nodeId, type: 'Start', tags: ['Start'], name: "Press the button to ask any query",type: null, questionNode: null }];
 var flowBot = {tenant:"emma", VA_Name:"", VA_Id:100, nodes: [], shape: nodeArray, slink};
 var questionArray = null;
 var saveUrl = 'http://localhost:5000/post';
@@ -109,7 +110,22 @@ const endSessionHandler = (id) => {
     } else if (endNode.type === 'Question') {
         endNode.questionNode.chatEnded = true;
     } else {
-
+        let obj = {
+            id: endNode.id, 
+            nextNodeId: null, 
+            condition: null, 
+            chatEnded: true, 
+            nextBot: null
+        }
+        let parent = getNode(endNode.pid);
+        if(parent.type === 'Question'){
+            parent.questionNode.hasRules.push(obj);
+        } else {
+            let parentOfParent = getNode(parent.pid);
+            let response = getResponseNode(parentOfParent, parent);
+            response.hasRules.push(obj);
+        }
+        parent.complete = true;
     }
 
     console.log(JSON.stringify(flowBot));
@@ -139,13 +155,9 @@ const openRemoveCurrentNextNodePopup = () => {
     removePopup.style.display = 'flex';
 }
 
-
-var questionNodeObject = null;
-
-function questionHandler(questionObject) { 
-
-    let newNode = {
-        id: nodeArray.length + 1,
+const getNewNode = (questionObject) => {
+    return {
+        id: ++nodeId,
         pid: parentId,
         tags: ['Question'],
         name: questionObject.text,
@@ -154,43 +166,49 @@ function questionHandler(questionObject) {
         complete: false,
         right: 0
     }
+}
 
-    let node = getNode(parentId);
-    nodeArray.push(newNode);
-    if(node.type === 'Response'){
-        let anotherNode = getNode(node.pid);   
-        let responseNode = getResponseNode(anotherNode, node);
-        responseNode.nextNodeId = questionObject.questionId;
-        node.nextNodeId = questionObject.questionId;
-        
-    } else if(node.type === 'Question'){
-        let len = node.questionNode.responses.length;
-        if(len){
-            let index = nodeArray.indexOf(node);
-            console.log(index);
-            newNode.right = (len % 2) ? len/2 + 1 : len/2;
-            nodeArray.splice(index+len/2 + 1 + node.right,0,newNode);
-            nodeArray.splice(nodeArray.length - 1, 1);
-        }
-        node.questionNode.nextNodeId = questionObject.questionId;
-    } else if(node.type === 'Condition') {
-        parentOfCondition = getNode(node.pid);
-        if(parentOfCondition.type === 'Question'){
-            parentOfCondition.questionNode.hasRules.push({id: node.id, nextNodeId: questionObject.questionId, condition: null});
-        } else if(parentOfCondition.type === 'Response'){
-            let responseParent = getNode(parentOfCondition.pid);
-            let response = getResponseNode(responseParent, parentOfCondition);
-            response.hasRules.push({id: node.id, nextNodeId: questionObject.questionId, condition: null});
-        }
+const setNextNodeIdIfResponse = (node, questionObject) => {
+    let anotherNode = getNode(node.pid);   
+    let responseNode = getResponseNode(anotherNode, node);
+    responseNode.nextNodeId = questionObject.questionId;
+    node.nextNodeId = questionObject.questionId;
+}
+
+const setNextNodeIdIfQuestion = (node,newNode) => {
+    let len = node.questionNode.responses.length;
+    if(len){
+        let index = nodeArray.indexOf(node);
+        console.log(index);
+        newNode.right = (len % 2) ? len/2 + 1 : len/2;
+        nodeArray.splice(index+len/2 + 1 + node.right,0,newNode);
+        nodeArray.splice(nodeArray.length - 1, 1);
     }
-    
-    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
+    node.questionNode.nextNodeId = questionObject.questionId;
+}
 
-    var responseArray = [];
+const setNextNodeIdIfCondition = (node, questionObject) => {
+    parentOfCondition = getNode(node.pid);
+    if(parentOfCondition.type === 'Question'){
+        parentOfCondition.questionNode.hasRules.push({
+            id: node.id, 
+            nextNodeId: questionObject.questionId, 
+            condition: null, 
+            chatEnded: null, 
+            nextBot: null
+        });
+    } else if(parentOfCondition.type === 'Response'){
+        let responseParent = getNode(parentOfCondition.pid);
+        let response = getResponseNode(responseParent, parentOfCondition);
+        response.hasRules.push({id: node.id, nextNodeId: questionObject.questionId, condition: null});
+    }
+    parentOfCondition.complete = true;
+}
 
+const pushResponseElementsIntoNodeArray = (questionObject, responseArray, newNode) => {
     for(let i = 0; i < questionObject.responses.length; i++){
         nodeArray.push({
-            id: nodeArray.length + 1,
+            id: ++nodeId,
             pid: newNode.id,
             parentQid: questionObject.questionId,
             tags: ['Response'],
@@ -209,8 +227,10 @@ function questionHandler(questionObject) {
             chatEnded: false
         });
     }
+}
 
-    questionNodeObject = {
+const getObjectOfQuestion = (questionObject, responseArray) => {
+    return {
         questionId: questionObject.questionId,
         questionType: questionObject.typeName,
         question: questionObject.text,
@@ -222,6 +242,28 @@ function questionHandler(questionObject) {
         responseType: questionObject.responseType,
         responses: responseArray
     }
+}
+
+function questionHandler(questionObject) { 
+
+    let newNode = getNewNode(questionObject);
+    let node = getNode(parentId);
+    nodeArray.push(newNode);
+
+    if(node.type === 'Response'){
+        setNextNodeIdIfResponse(node, questionObject);
+        
+    } else if(node.type === 'Question'){
+        setNextNodeIdIfQuestion(node, newNode);
+    } else if(node.type === 'Condition') {
+        setNextNodeIdIfCondition(node, questionObject);
+    }
+    questionObject.responses.sort((a,b) => {return a.viewOrder - b.viewOrder});
+    var responseArray = [];
+
+    pushResponseElementsIntoNodeArray(questionObject, responseArray, newNode);
+
+    let questionNodeObject = getObjectOfQuestion(questionObject, responseArray);
 
     newNode.questionNode = questionNodeObject;
     flowBot.nodes.push(newNode.questionNode);
@@ -233,12 +275,11 @@ function questionHandler(questionObject) {
     chart.draw();
 }
 
-
 const askQuestionHandler = (id) => {
     let node = getNode(id);
     if(node.id !== 1){
-        let isNextNodeId = (node.type === 'Response') ? node.nextNodeId : (node.type === 'Question') ? node.questionNode.nextNodeId : null;
-        if(isNextNodeId) {
+        //let isNextNodeId = (node.type === 'Response') ? node.nextNodeId : (node.type === 'Question') ? node.questionNode.nextNodeId : null;
+        if(node.complete) {
             openRemoveCurrentNextNodePopup();
             return;
         }
@@ -250,11 +291,12 @@ const askQuestionHandler = (id) => {
 }
 
 const conditionHandler = (id) => {
-    
+    ++nodeId
+    console.log(nodeId);
     nodeArray.push({
-        id: nodeArray.length+1,
+        id: nodeId,
         pid: id,
-        name: `Condition ${nodeArray.length+1}`,
+        name: `Condition ${nodeId}`,
         tags: ['Condition'],
         type: 'Condition',
         complete: false
@@ -267,17 +309,34 @@ const setCondtionHandler = () => {
 
 }
 
-const vaTypeHandler = (pId, virtualAssistant) => { 
-    let parent = getNode(pId);
+const nextVaHandler = (id, virtualAssistant) => { 
+    let currentNode = getNode(id);
+    let parentOfCurrentNode = getNode(currentNode.pid);
     
-    if(parent.type === 'Response'){
-        let parentOfParent = getNode(parent.pid);
-        let response = getResponseNode(parentOfParent, parent);
+    if(currentNode.type === 'Response'){
+        let response = getResponseNode(parentOfCurrentNode, currentNode);
         response.nextBot = virtualAssistant;
-    } else if(parent.type === 'Question'){
-        parent.questionNode.nextBot = virtualAssistant;
+    } else if(currentNode.type === 'Question'){
+        currentNode.questionNode.nextBot = virtualAssistant;
+    } else {
+        let obj = {
+            id: currentNode.id, 
+            nextNodeId: null, 
+            condition: null, 
+            chatEnded: false, 
+            nextBot: virtualAssistant
+        }
+        if(parentOfCurrentNode.type === 'Question'){
+            parentOfCurrentNode.questionNode.hasRules.push(obj);
+        } else {
+            let grandParent = getNode(parentOfCurrentNode.pid);
+            let response = getResponseNode(grandParent, parentOfCurrentNode);
+            response.hasRules.push(obj);
+        }
+        parentOfCurrentNode.complete = true;
     }
-    parent.complete = true;
+    currentNode.complete = true;
+    console.log(JSON.stringify(flowBot));
 
     if(checkAllNodesThenSave()){
         clearAllNodesAndStartNewVA(virtualAssistant);
@@ -297,7 +356,7 @@ var bot = [ 'Fisycal Score Victory Assessment',  'Pain Recorder Virtual Assessme
             'Precall Test Virtual Assessment', 'Intake'
           ];
 
-const vA_Handler = (id) => {
+const vA_ListHandler = (id) => {
     if(offsetX + 240 > screen.width){
         offsetX -= 200;
     }
@@ -322,7 +381,7 @@ const vA_Handler = (id) => {
         input.setAttribute('readonly', true);
         input.value = bot[i];
         input.addEventListener('click', function(){
-            vaTypeHandler(id,bot[i]);
+            nextVaHandler(id,bot[i]);
         });
         let container = document.createElement('div');
         container.appendChild(input);
@@ -331,12 +390,6 @@ const vA_Handler = (id) => {
     outerDiv.appendChild(innerDiv);   
     questionOption.appendChild(outerDiv);
 }
-
-
-const nullAllParentsNextNodeId = (questionId) => {
-
-}
-
 
 const removeSlink = (id) => {
     for(let i = 0; i < slink.length; i++){
@@ -531,9 +584,10 @@ const checkAllResponsesCondition = (responseOfFromnodeParent) => {
 
 
 const sLinkHandler = (fromnodeId, tonodeId) => {
-    console.log(fromnodeId , tonodeId);
     let fromnode = getNode(fromnodeId);
     let tonode = getNode(tonodeId);
+    if(tonode.type === 'Response') return;
+    if(fromnode.type === 'Condition' && tonode.type === 'Condition') return;
     let tonodeQuestionId = tonode.questionNode.questionId;
 
     if(fromnode.type === 'Question'){
@@ -1001,11 +1055,22 @@ const openOrgChart = () => {
                         text: "Add Question",
                         onClick: askQuestionHandler
                     },
+                    
+                    goToAnotherVA: {
+                        icon: "",
+                        text: "Go to another V/A",
+                        onClick: vA_ListHandler
+                    },
                     remove: {
                         icon: "",
                         text: "Remove Question",
                         onClick: removeQuestionHandler
                     },
+                    endsession: {
+                        icon: "",
+                        text: "End Session",
+                        onClick: endSessionHandler
+                    }
                 }
             },
             End: {
@@ -1029,7 +1094,7 @@ const openOrgChart = () => {
             goToAnotherVA: {
                 icon: "",
                 text: "Go to another V/A",
-                onClick: vA_Handler
+                onClick: vA_ListHandler
             },
     
             remove: {
@@ -1056,7 +1121,6 @@ const openOrgChart = () => {
         return false;
     });
 }
-
 
 var shape = JSON.parse(localStorage.getItem('shape'));
 if(shape){
