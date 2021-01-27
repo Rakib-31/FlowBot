@@ -6,9 +6,11 @@ var nodeArray = [{ id: nodeId, type: 'Start', tags: ['Start'], name: "Press the 
 var flowBot = {tenant:"emma", VA_Name:"", VA_Id:100, nodes: [], shape: nodeArray, slink};
 var questionArray = null;
 var saveUrl = 'http://localhost:5000/post';
+var dataArray;
 
 axios.get( './data.json' ).then( data =>{ 
     questionArray = data.data.data;
+    dataArray = questionArray.questions;
 });
 
 console.log(flowBot);
@@ -42,9 +44,10 @@ function autocomplete(inp, dataArray) {
                 itemDiv = document.createElement("div");
                 itemDiv.style.textAlign = 'left';
                 itemDiv.innerHTML = dataArray[i].text;
-
-                itemDiv.addEventListener('click', function() {
-                    questionHandler(dataArray[i]);
+                itemDiv.setAttribute('id', i);
+                itemDiv.addEventListener('click', function(e) {
+                    var index = parseInt(this.getAttribute('id'));
+                    questionHandler(index);
                 }, false);
                 itemContainerDiv.appendChild(itemDiv);
             }
@@ -244,8 +247,9 @@ const getObjectOfQuestion = (questionObject, responseArray) => {
     }
 }
 
-function questionHandler(questionObject) { 
-
+function questionHandler(index) { 
+    var questionObject = dataArray[index];
+    console.log(questionObject);
     let newNode = getNewNode(questionObject);
     let node = getNode(parentId);
     nodeArray.push(newNode);
@@ -284,7 +288,7 @@ const askQuestionHandler = (id) => {
             return;
         }
     }
-    autocomplete(searchBar, questionArray.questions);
+    autocomplete(searchBar, dataArray);
     parentId = id;
     searchBar.value = '';
     modal.style.display = "block";
