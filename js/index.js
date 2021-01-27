@@ -44,7 +44,7 @@ function autocomplete(inp, dataArray) {
                 itemDiv = document.createElement("div");
                 itemDiv.style.textAlign = 'left';
                 itemDiv.innerHTML = dataArray[i].text;
-                itemDiv.setAttribute('id', i);
+                itemDiv.setAttribute('id', dataArray[i].questionId);
                 itemDiv.addEventListener('click', function(e) {
                     var index = parseInt(this.getAttribute('id'));
                     questionHandler(index);
@@ -248,7 +248,7 @@ const getObjectOfQuestion = (questionObject, responseArray) => {
 }
 
 function questionHandler(index) { 
-    var questionObject = dataArray[index];
+    var questionObject = dataArray.filter(res => res.questionId === index)[0];
     console.log(questionObject);
     let newNode = getNewNode(questionObject);
     let node = getNode(parentId);
